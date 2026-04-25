@@ -1,0 +1,631 @@
+# =============================================================================
+# ReqQuest Specification — demo "default2"
+# =============================================================================
+# Re-implementation of `demos/src/default/` using the spec format documented
+# in CLAUDE.md, with three new vocabularies layered on top:
+#
+#   A. Field shorthand           — list carbon-svelte primitives directly in
+#      `ui.form.fields:`. The generator emits the corresponding Svelte file
+#      instead of a hand-written stub.
+#
+#   B. Template references       — point `ui.form` / `ui.display` at a
+#      parameterized component in `resources/ui-templates/`. The generator
+#      emits a thin wrapper that imports the template and forwards `data` /
+#      `fetched` plus the spec-supplied `props`.
+#
+#   C. Declarative validation /
+#      resolve rules            — `validate.rules:` and `resolve.rules:`
+#      replace the most common imperative bodies with a small rule list.
+#      The escape hatch (`validate: true`, `resolve: true`) still works for
+#      anything that requires complex rules.
+#
+# All three coexist with the pre-existing `component:` escape hatch:
+#
+#     ui.form / ui.display / ui.configure:
+#       fields: [...]                         # (A) primitives
+#       cases:  [...]                         # (A, display only) case-tree;
+#                                             #   each branch may render
+#                                             #   `text:` OR `template:`+`props:`
+#       text:   "..."                         # (A, display only) tiny string
+#       template: <Id>, props: { ... }        # (B) reusable template
+#       component: <Name>                     # (escape) hand-written .svelte
+#       wrap:                                 # optional outer wrapper around
+#         template: QuestionnairePrompt       #   `fields:` (preferred form;
+#         props: { ... }                      #   resolves to resources/ui-templates/)
+#
+#     validate / preValidate:
+#       true                                  # author writes a function
+#       false                                 # explicit no-op
+#       rules: [...]                          # (C) declarative rules
+#
+#     resolve:
+#       true                                  # author writes a function
+#       rules: [...]                          # (C) declarative rules
+# =============================================================================
+
+specVersion: 2
+project:
+  id: default2
+  name: Adopt a Pet
+  multipleRequestsPerPeriod: false
+  ui:
+    applicantDashboardIntroHeader: Start your Pet Journey Here!
+    applicantDashboardIntroDetail: >
+      Submitting an adoption application is the first step in adopting a pet.
+      Based on your responses you will receive a list of "eligible benefits."
+    applicantDashboardRecentDays: 30
+
+# =============================================================================
+# MODELS
+# =============================================================================
+models:
+
+  # ---- state ----
+  StateList:
+    group: state
+    kind: referenceData
+    shape: { value: string, label: string }
+    fixture: specs/resources/data/states.yml
+
+  WhichStatePrompt:
+    group: state
+    properties:
+      state:     { enum: StateList }                    # value side ("TX")
+      stateName: { enum: StateList, by: label }         # label mirror ("Texas")
+
+  # ---- yard ----
+  HaveYardPrompt:
+    group: yard
+    properties:
+      haveYard:      boolean
+      squareFootage: number
+      totalPets:     number
+
+  # ---- dog ----
+  ExercisePrompt:
+    group: dog
+    properties:
+      exerciseHours: number
+
+  ExerciseConfig:
+    group: dog
+    required: [minExerciseHours]
+    properties:
+      minExerciseHours: number
+
+  # ---- cat ----
+  CatTowerPrompt:
+    group: cat
+    properties:
+      haveCatTower:         boolean
+      willPurchaseCatTower: boolean
+
+  TunaAllergyPrompt:
+    group: cat
+    properties:
+      allergicToTuna: boolean
+
+  ApplicantSeemsNicePrompt:
+    group: cat
+    properties:
+      seemsNice: boolean
+
+  OtherCatsPrompt:
+    group: cat
+    properties:
+      hasOtherCats: boolean
+
+  UploadInfo:
+    group: cat
+    required: [_type, multipartIndex, name, mime, size]
+    properties:
+      _type:          string
+      multipartIndex: number
+      name:           string
+      mime:           string
+      size:           number
+      shasum:         string
+
+  OtherCatsVaccinesPrompt:
+    group: cat
+    properties:
+      distemperDoc:      UploadInfo
+      rabiesDoc:         UploadInfo
+      felineLeukemiaDoc: UploadInfo
+      felineHIVDoc:      UploadInfo
+
+  VaccineReviewPrompt:
+    group: cat
+    properties:
+      distemper:      { properties: { satisfactory: boolean } }
+      rabies:         { properties: { satisfactory: boolean } }
+      felineLeukemia: { properties: { satisfactory: boolean } }
+      felineHIV:      { properties: { satisfactory: boolean } }
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+
+  # ---------------------------------------------------------------------------
+  # state ----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  whichStatePrompt:
+    title: Where do you live?
+    description: Applicants will enter the state they live in.
+    model: WhichStatePrompt
+    fetch: StateList                          # generator emits a fetch that
+                                              #   returns { stateList } from
+                                              #   the StateList ref data
+    ui:
+      form:
+        # B: template reference. StateSelect emits a FieldSelect + paired
+        # FieldHidden(stateName) using `fetched.stateList`.
+        template: StateSelect
+        props:
+          path: state
+          labelPath: stateName
+          labelText: State
+          required: true
+          listKey: stateList
+      display:
+        # A: text shorthand — bare identifiers resolve to the prompt's
+        # own model fields (CLAUDE.md §6.5).
+        text: "{{ stateName ?? state }}"
+    validate:
+      # C: declarative rules.
+      rules:
+        - { field: state,     required: true, message: "Please enter the state you live in." }
+        - { field: stateName, equalsLabelOf: state, source: StateList,
+            message: "State abbreviation does not match state name." }
+    tags:
+      - category: state
+        categoryLabel: State
+        description: Limit based on the state the applicant lives in.
+        extract: "[whichStatePrompt.state]"   # one-line expression form;
+                                              # symbolic prompt-id resolves
+                                              # to data.which_state_prompt
+                                              # implies getTags + getLabel
+        source: StateList
+        useInAppRequestList: 1
+        useInListFilters: 1
+        useInReviewerDashboard: 1
+
+  # ---------------------------------------------------------------------------
+  # yard ----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  haveYardPrompt:
+    title: Tell us about your yard
+    description: >
+      Applicants will enter information about their yard including how
+      large it is and how many pets will share it.
+    model: HaveYardPrompt
+    ui:
+      form:
+        # A: field shorthand wrapped in the QuestionnairePrompt template
+        # from resources/ui-templates/
+        wrap:
+          template: QuestionnairePrompt
+          props:
+            title: "Yard Information."
+            description: "Please provide some information about your yard to help us ensure it's a safe environment for your new pet."
+            externalLinks:
+              - { url: "https://www.aspca.org/",       label: "Yard Safety Tips from ASPCA" }
+              - { url: "https://www.humanesociety.org/", label: "Creating a Pet-Friendly Yard from Humane Society" }
+        fields:
+          - FieldRadio:
+              path: haveYard
+              boolean: true
+              legendText: "Do you have a yard?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldNumber:
+              path: squareFootage
+              labelText: "Square Footage"
+              conditional: "haveYard"
+              helperText: "Estimate your yard size in square feet."
+          - FieldNumber:
+              path: totalPets
+              labelText: "Total Pets"
+              conditional: "haveYard"
+              helperText: "How many pets will be sharing this yard after the adoption?"
+      display:
+        # A+B: case-tree where the "yes" branch instantiates a template.
+        # No project-specific Svelte file is needed.
+        cases:
+          - { when: "!haveYard", text: "No yard." }
+          - else: true
+            template: LabeledFields
+            props:
+              entries:
+                - { path: squareFootage, label: "Square Footage" }
+                - { path: totalPets,     label: "Total Pets" }
+    validate:
+      rules:
+        - { field: haveYard, required: true,
+            message: "Please indicate whether you have a yard." }
+        - { field: squareFootage, requiredWhen: "haveYard",
+            message: "Please enter the square footage of your yard." }
+        - { field: squareFootage, requiredWhen: "haveYard", min: 1,
+            message: "Please enter a valid square footage." }
+        - { field: totalPets, requiredWhen: "haveYard",
+            message: "Please enter the number of pets." }
+        - { field: totalPets, requiredWhen: "haveYard", min: 1,
+            message: "Please enter a valid number of pets. Remember to include this pet in your total." }
+
+  # ---------------------------------------------------------------------------
+  # dog -----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  mustExerciseYourDogPrompt:
+    title: Dog Exercise Agreement
+    description: >
+      The applicant will agree to exercise their dog a certain number of
+      hours a week.
+    model: ExercisePrompt
+    gatherConfig:
+      mustExerciseYourDogReq: [minExerciseHours]    # exposes config.minExerciseHours
+    ui:
+      form:
+        fields:
+          - FieldNumber:
+              path: exerciseHours
+              labelText: "Exercise Per Week"
+              helperText: "How many hours per week will you be able to exercise the dog, on average?"
+      display:
+        text: "{{ exerciseHours }} hours a week."
+    validate:
+      rules:
+        - { field: exerciseHours, required: true,
+            message: "Please enter the number of hours you will exercise your dog." }
+        - { field: exerciseHours, min: "config.minExerciseHours",
+            messageType: warning,
+            message: "You must exercise your dog an average of {{config.minExerciseHours}} hours a week in order to successfully adopt." }
+
+  # ---------------------------------------------------------------------------
+  # cat -----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  haveACatTowerPrompt:
+    title: Cat Owner Equipment
+    description: >
+      Applicants will indicate whether they own a cat tower or will
+      purchase one.
+    model: CatTowerPrompt
+    ui:
+      form:
+        # B: YesNoFollowUp template — radio + conditional follow-up
+        # checkbox.
+        template: YesNoFollowUp
+        props:
+          path: haveCatTower
+          legend: "Do you have a cat tower in your house?"
+          followUp:
+            path: willPurchaseCatTower
+            label: "I agree to purchase a cat tower upon adoption."
+            showWhen: "no"
+      display:
+        # A: declarative case-tree. First match wins. Bare identifiers
+        # resolve to fields on this prompt's model.
+        cases:
+          - { when: "haveCatTower",           text: "Already owns a cat tower." }
+          - { when: "willPurchaseCatTower",   text: "Will purchase a cat tower." }
+          - { when: "haveCatTower === false", text: "No cat tower." }
+    validate:
+      rules:
+        - { field: haveCatTower, required: true,
+            message: "Please indicate whether you have a cat tower." }
+        - { field: willPurchaseCatTower, requiredWhen: "haveCatTower === false",
+            message: "Please indicate whether you will purchase a cat tower." }
+
+  notAllergicToTunaPrompt:
+    title: Tuna Allergy
+    description: Applicants will indicate whether they are allergic to tuna.
+    model: TunaAllergyPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: allergicToTuna
+              boolean: true
+              legendText: "Are you allergic to airborne tuna?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        template: YesNoFollowUpDisplay
+        props: { path: allergicToTuna, label: "Allergic to airborne tuna" }
+    validate:
+      rules:
+        - { field: allergicToTuna, required: true,
+            message: "Please indicate whether you are allergic to tuna." }
+
+  applicantSeemsNicePrompt:
+    title: Assess Applicant's Niceness
+    navTitle: Niceness
+    description: Reviewer will indicate whether the applicant seems nice.
+    model: ApplicantSeemsNicePrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: seemsNice
+              boolean: true
+              labelText: "This applicant seems like a nice person."
+              items: [{ label: No, value: false }, { label: Yes, value: true }]
+      display:
+        template: YesNoFollowUpDisplay
+        props: { path: seemsNice, label: "Applicant seems nice",
+                 yesText: "Nice", noText: "Mean" }
+    validate:
+      rules:
+        - { field: seemsNice, required: true,
+            message: "Please indicate whether the applicant seems nice." }
+    indexes:
+      - category: nice
+        # Declarative tag mapping: emit "yes" / "no" / nothing.
+        extract:
+          map: seemsNice
+          true: yes
+          false: no
+        labels: { yes: Yes, no: No }
+        useInAppRequestList: 1
+        useInListFilters: 1
+
+  otherCatsPrompt:
+    title: Do you have other cats?
+    description: >
+      Applicants will indicate whether they have other cats in the
+      household.
+    model: OtherCatsPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: hasOtherCats
+              boolean: true
+              labelText: "Do you have other cats?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        template: YesNoFollowUpDisplay
+        props: { path: hasOtherCats, label: "Has other cats in household" }
+    validate:
+      rules:
+        - { field: hasOtherCats, required: true,
+            message: "Please indicate whether you have other cats." }
+
+  otherCatsVaccinesPrompt:
+    title: Other Cats Vaccination Records
+    description: Upload vaccination records for other cats in the household.
+    model: OtherCatsVaccinesPrompt
+    ui:
+      form:
+        # B: DocumentSet template — emits one FieldUpload per entry.
+        template: DocumentSet
+        props:
+          documents:
+            - { path: distemperDoc,      label: "Proof of Distemper Vaccine" }
+            - { path: rabiesDoc,         label: "Proof of Rabies Vaccine" }
+            - { path: felineLeukemiaDoc, label: "Proof of Feline Leukemia Vaccine" }
+            - { path: felineHIVDoc,      label: "Proof of Feline HIV Vaccine" }
+      display:
+        template: DocumentSetDisplay
+        props:
+          documents:
+            - { path: distemperDoc,      label: "Distemper" }
+            - { path: rabiesDoc,         label: "Rabies" }
+            - { path: felineLeukemiaDoc, label: "Feline Leukemia" }
+            - { path: felineHIVDoc,      label: "Feline HIV" }
+    preValidate:
+      # C: per-field upload size check, declared once for all four files.
+      rules:
+        - { field: distemperDoc,      maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+        - { field: rabiesDoc,         maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+        - { field: felineLeukemiaDoc, maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+        - { field: felineHIVDoc,      maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+    preProcessData: true              # author hashes uploads + writes shasum
+    validate:
+      rules:
+        - { field: distemperDoc,      required: true, message: "Please upload distemper vaccination record." }
+        - { field: rabiesDoc,         required: true, message: "Please upload rabies vaccination record." }
+        - { field: felineLeukemiaDoc, required: true, message: "Please upload feline leukemia vaccination record." }
+        - { field: felineHIVDoc,      required: true, message: "Please upload feline HIV vaccination record." }
+
+  vaccineReviewPrompt:
+    title: Vaccine Review
+    description: Review the vaccination records for the applicant's cats.
+    model: VaccineReviewPrompt
+    ui:
+      form:
+        template: SatisfactoryReviewSet
+        props:
+          items:
+            - { path: distemper,      label: "Is the proof of distemper vaccination satisfactory?" }
+            - { path: rabies,         label: "Is the proof of rabies vaccination satisfactory?" }
+            - { path: felineLeukemia, label: "Is the proof of feline leukemia vaccination satisfactory?" }
+            - { path: felineHIV,      label: "Is the proof of feline HIV vaccination satisfactory?" }
+      display:
+        template: SatisfactoryReviewSetDisplay
+        props:
+          items:
+            - { path: distemper,      label: "Distemper vaccination" }
+            - { path: rabies,         label: "Rabies vaccination" }
+            - { path: felineLeukemia, label: "Feline leukemia vaccination" }
+            - { path: felineHIV,      label: "Feline HIV vaccination" }
+    validate:
+      rules:
+        - { field: distemper,      required: true, message: "Please review distemper vaccination record." }
+        - { field: rabies,         required: true, message: "Please review rabies vaccination record." }
+        - { field: felineLeukemia, required: true, message: "Please review feline leukemia vaccination record." }
+        - { field: felineHIV,      required: true, message: "Please review feline HIV vaccination record." }
+    invalidates:
+      # Declarative form (when `dynamic` would otherwise be needed): if any
+      # `<x>.satisfactory === false`, mark the upload prompt invalid.
+      whenAnyFalse: [distemper.satisfactory, rabies.satisfactory, felineLeukemia.satisfactory, felineHIV.satisfactory]
+      targets:
+        - { promptId: otherCatsVaccinesPrompt,
+            reason: "One or more vaccination documents are invalid. Please re-upload." }
+    revalidates:
+      whenAllTrue: [distemper.satisfactory, rabies.satisfactory, felineLeukemia.satisfactory, felineHIV.satisfactory]
+      targets: [otherCatsVaccinesPrompt]
+
+# =============================================================================
+# REQUIREMENTS
+# =============================================================================
+requirements:
+
+  # ---- state ----
+  whichStateReq:
+    phase: PREQUAL
+    title: Applicant provides state of residence.
+    navTitle: State
+    description: Applicants must tell us which state they live in.
+    prompts: [whichStatePrompt]
+    resolve:
+      # `emits:` is derived from these rules (CLAUDE.md §6.5).
+      # Top-level identifiers resolve to prompts in `prompts:` above.
+      rules:
+        - { when: "whichStatePrompt.state == null", status: PENDING }
+        - { else: true,                             status: MET }
+
+  # ---- yard ----
+  haveBigYardReq:
+    phase: PREQUAL
+    title: Have a big yard
+    navTitle: Big Yard
+    description: Applicants must have a yard that is at least 1000 square feet.
+    prompts: [haveYardPrompt]
+    resolve:
+      rules:
+        - { when: "haveYardPrompt.haveYard == null", status: PENDING }
+        - { when: "!haveYardPrompt.haveYard",
+            status: DISQUALIFYING, reason: "Must have a yard to have a dog." }
+        - { when: "haveYardPrompt.squareFootage == null", status: PENDING }
+        - { when: "haveYardPrompt.squareFootage >= 1000", status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "Your yard is too small. It has to be at least 1000 square feet." }
+
+  haveAdequatePersonalSpaceReq:
+    phase: QUALIFICATION
+    title: Have enough space per pet
+    navTitle: Yard Per Pet
+    description: Applicants must have at least 300 square feet of yard space per pet.
+    prompts: [haveYardPrompt]
+    emits: [PENDING, MET, DISQUALIFYING]
+    # Has division and short-circuit logic — keep imperative.
+    # `emits:` is required because `resolve: true` is opaque.
+    resolve: true
+
+  # ---- dog ----
+  mustExerciseYourDogReq:
+    phase: QUALIFICATION
+    title: Agreement to Exercise the Dog
+    navTitle: Exercise Per Week
+    description: The applicant must exercise their dog a certain number of hours a week.
+    prompts: [mustExerciseYourDogPrompt]
+    resolve:
+      rules:
+        - { when: "mustExerciseYourDogPrompt.exerciseHours == null", status: PENDING }
+        - { when: "mustExerciseYourDogPrompt.exerciseHours >= config.minExerciseHours", status: MET }
+        - { else: true, status: WARNING,
+            reason: "You must exercise your dog {{config.minExerciseHours}} hours a week." }
+    configuration:
+      model: ExerciseConfig
+      default: { minExerciseHours: 10 }
+      validate:
+        rules:
+          - { field: minExerciseHours, required: true,
+              message: "Please enter the minimum number of hours to exercise the dog." }
+          - { field: minExerciseHours, min: 0,
+              message: "Please enter a valid number of hours." }
+      ui:
+        configure:
+          # A: field shorthand — Shape A/B/D apply to `configure:` too.
+          fields:
+            - FieldNumber:
+                path: minExerciseHours
+                labelText: "Minimum Exercise Per Week"
+                helperText: "How many hours per week is the applicant required to exercise their dog, on average?"
+
+  # ---- cat ----
+  haveACatTowerReq:
+    phase: QUALIFICATION
+    title: Applicant must own a cat tower
+    navTitle: Cat Tower
+    description: Applicants must own a cat tower or be willing to purchase one upon adoption.
+    prompts: [haveACatTowerPrompt]
+    resolve:
+      rules:
+        - { when: "haveACatTowerPrompt.haveCatTower == null",         status: PENDING }
+        - { when: "haveACatTowerPrompt.haveCatTower",                  status: MET }
+        - { when: "haveACatTowerPrompt.willPurchaseCatTower == null",  status: PENDING }
+        - { when: "haveACatTowerPrompt.willPurchaseCatTower",          status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "Must own a cat tower or be willing to purchase one." }
+
+  notAllergicToTunaReq:
+    phase: QUALIFICATION
+    title: Applicant must not be allergic to tuna
+    navTitle: Not Allergic to Tuna
+    description: Applicants must not be allergic to the smell of tuna.
+    prompts: [notAllergicToTunaPrompt]
+    resolve:
+      rules:
+        - { when: "notAllergicToTunaPrompt.allergicToTuna == null", status: PENDING }
+        - { when: "notAllergicToTunaPrompt.allergicToTuna",
+            status: DISQUALIFYING, reason: "Must not be allergic to tuna." }
+        - { else: true, status: MET }
+
+  applicantSeemsNiceReq:
+    phase: APPROVAL
+    title: Applicant seems nice
+    navTitle: Seems Nice
+    description: Applicant has to seem nice if we're going to let them have a pet.
+    prompts: [applicantSeemsNicePrompt]
+    resolve:
+      rules:
+        - { when: "applicantSeemsNicePrompt.seemsNice == null", status: PENDING }
+        - { when: "applicantSeemsNicePrompt.seemsNice",          status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Applicant looks kinda mean." }
+
+  otherCatsApplicantReq:
+    phase: QUALIFICATION
+    title: Other Cats Requirement
+    description: If applicant has other cats, they must be vaccinated.
+    prompts: [otherCatsPrompt, otherCatsVaccinesPrompt]
+    emits: [PENDING, MET, NOT_APPLICABLE]
+    # Cross-prompt branching with reason text — keep imperative.
+    resolve: true
+
+  otherCatsReviewerReq:
+    phase: APPROVAL
+    title: Other Cats Reviewer Requirement
+    description: Reviewer must assess the vaccination records provided by the applicant.
+    prompts: [otherCatsPrompt, vaccineReviewPrompt]
+    emits: [PENDING, MET, DISQUALIFYING, NOT_APPLICABLE]
+    # Loops over keys with a synthesized reason — keep imperative.
+    resolve: true
+
+# =============================================================================
+# PROGRAMS
+# =============================================================================
+programs:
+
+  adoptADogProgram:
+    title: Adopt a Dog
+    icon: DogWalker
+    requirements:
+      - whichStateReq                  # PREQUAL
+      - haveBigYardReq                 # PREQUAL
+      - haveAdequatePersonalSpaceReq   # QUALIFICATION
+      - mustExerciseYourDogReq         # QUALIFICATION
+
+  adoptACatProgram:
+    title: Adopt a Cat
+    icon: PetImageF
+    requirements:
+      - whichStateReq                  # PREQUAL
+      - haveACatTowerReq               # QUALIFICATION
+      - otherCatsApplicantReq          # QUALIFICATION
+      - otherCatsReviewerReq           # APPROVAL
+      - notAllergicToTunaReq           # QUALIFICATION
+      - applicantSeemsNiceReq          # APPROVAL
