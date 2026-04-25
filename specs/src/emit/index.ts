@@ -3,6 +3,7 @@ import { OutputBundle } from './files.js'
 import { emitModels } from './models.js'
 import { emitLogicStubs } from './logic.js'
 import { emitPrompts } from './prompts.js'
+import { emitRequirements } from './requirements.js'
 import { emitUI } from './ui/index.js'
 
 export { OutputBundle } from './files.js'
@@ -24,6 +25,7 @@ export async function buildEmitBundle (spec: ResolvedSpec, opts: EmitOpts): Prom
   await emitModels(spec, bundle)
   await emitLogicStubs(spec, bundle, opts)
   await emitPrompts(spec, bundle)
+  await emitRequirements(spec, bundle)
   await emitUI(spec, bundle, opts)
   return { bundle }
 }

@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
-import { Project, SyntaxKind, type SourceFile } from 'ts-morph'
-import type { ResolvedSpec, ResolvedPrompt } from '../ir/types.js'
+import { Project, type SourceFile } from 'ts-morph'
+import type { ResolvedSpec, ResolvedPrompt, ResolvedRequirement } from '../ir/types.js'
 import { logicFilePath } from '../ir/derive.js'
+import { upperFirstChar } from '../codegen/ts.js'
 import { formatTS } from '../codegen/format.js'
+import { type ImportCollector, logicImportPath } from '../codegen/imports.js'
 import type { OutputBundle } from './files.js'
 import type { EmitOpts } from './index.js'
 
@@ -33,13 +35,14 @@ interface ImportRef {
 // missing stubs are appended. The author owns the bodies.
 export async function emitLogicStubs (spec: ResolvedSpec, bundle: OutputBundle, opts: EmitOpts): Promise<void> {
   const stubsByGroup = new Map<string, StubSpec[]>()
-  for (const prompt of spec.prompts) {
-    for (const stub of stubsForPrompt(prompt)) {
-      const list = stubsByGroup.get(prompt.group) ?? []
-      list.push(stub)
-      stubsByGroup.set(prompt.group, list)
-    }
+  const collect = (group: string, stubs: StubSpec[]): void => {
+    if (stubs.length === 0) return
+    const list = stubsByGroup.get(group) ?? []
+    list.push(...stubs)
+    stubsByGroup.set(group, list)
   }
+  for (const prompt of spec.prompts) collect(prompt.group, stubsForPrompt(prompt))
+  for (const req of spec.requirements) collect(req.group, stubsForRequirement(req))
 
   for (const [group, stubs] of stubsByGroup) {
     const path = logicFilePath(spec.project.id, group)
@@ -55,21 +58,22 @@ export async function emitLogicStubs (spec: ResolvedSpec, bundle: OutputBundle, 
 function stubsForPrompt (prompt: ResolvedPrompt): StubSpec[] {
   const out: StubSpec[] = []
   const r = prompt.raw
+  const dataType = prompt.model.apiSymbols.dataType
   const dataImport = modelDataImport(prompt)
 
   if (r.preProcessData === true) {
     out.push({
-      name: stubName(prompt, 'preProcessData'),
-      signature: `data: ${prompt.model.apiSymbols.dataType}, ctx: any, appRequest: any, appRequestData: any, allPeriodConfig: any, db: any`,
-      returnType: prompt.model.apiSymbols.dataType,
+      name: stubName(prompt.id, 'preProcessData'),
+      signature: `data: ${dataType}, ctx: any, appRequest: any, appRequestData: any, allPeriodConfig: any, db: any`,
+      returnType: dataType,
       body: '{\n  return data\n}',
       imports: [dataImport]
     })
   }
   if (r.validate === true) {
     out.push({
-      name: stubName(prompt, 'validate'),
-      signature: `data: ${prompt.model.apiSymbols.dataType}, config: any, appRequestData: any, allPeriodConfig: any, db: any`,
+      name: stubName(prompt.id, 'validate'),
+      signature: `data: ${dataType}, config: any, appRequestData: any, allPeriodConfig: any, db: any`,
       returnType: 'MutationMessage[]',
       body: '{\n  return []\n}',
       imports: [dataImport, MUTATION_MESSAGE_IMPORT]
@@ -77,8 +81,8 @@ function stubsForPrompt (prompt: ResolvedPrompt): StubSpec[] {
   }
   if (r.preValidate === true) {
     out.push({
-      name: stubName(prompt, 'preValidate'),
-      signature: `data: ${prompt.model.apiSymbols.dataType}, config: any, appRequestData: any, allPeriodConfig: any, db: any`,
+      name: stubName(prompt.id, 'preValidate'),
+      signature: `data: ${dataType}, config: any, appRequestData: any, allPeriodConfig: any, db: any`,
       returnType: 'MutationMessage[]',
       body: '{\n  return []\n}',
       imports: [dataImport, MUTATION_MESSAGE_IMPORT]
@@ -86,16 +90,16 @@ function stubsForPrompt (prompt: ResolvedPrompt): StubSpec[] {
   }
   if (r.preload === true) {
     out.push({
-      name: stubName(prompt, 'preload'),
+      name: stubName(prompt.id, 'preload'),
       signature: 'appRequest: any, config: any, appRequestData: any, allPeriodConfig: any, ctx: any',
-      returnType: prompt.model.apiSymbols.dataType,
+      returnType: dataType,
       body: '{\n  return {} as any\n}',
       imports: [dataImport]
     })
   }
   if (r.fetch === true) {
     out.push({
-      name: stubName(prompt, 'fetch'),
+      name: stubName(prompt.id, 'fetch'),
       signature: 'appRequest: any, config: any, appRequestData: any, allPeriodConfig: any, ctx: any',
       returnType: 'any',
       body: '{\n  return {}\n}',
@@ -104,7 +108,7 @@ function stubsForPrompt (prompt: ResolvedPrompt): StubSpec[] {
   }
   if (r.invalidates === 'dynamic') {
     out.push({
-      name: stubName(prompt, 'invalidUponChange'),
+      name: stubName(prompt.id, 'invalidUponChange'),
       signature: 'data: any, config: any, appRequestData: any, allPeriodConfig: any',
       returnType: 'InvalidatedResponse[]',
       body: '{\n  return []\n}',
@@ -113,10 +117,52 @@ function stubsForPrompt (prompt: ResolvedPrompt): StubSpec[] {
   }
   if (r.revalidates === 'dynamic') {
     out.push({
-      name: stubName(prompt, 'validUponChange'),
+      name: stubName(prompt.id, 'validUponChange'),
       signature: 'data: any, config: any, appRequestData: any, allPeriodConfig: any',
       returnType: 'string[]',
       body: '{\n  return []\n}',
+      imports: []
+    })
+  }
+  return out
+}
+
+function stubsForRequirement (req: ResolvedRequirement): StubSpec[] {
+  const out: StubSpec[] = []
+  const r = req.raw
+  if (r.resolve === true) {
+    out.push({
+      name: stubName(req.id, 'resolve'),
+      signature: 'data: any, config: any, configLookup: any',
+      returnType: '{ status: RequirementStatus, reason?: string }',
+      body: '{\n  return { status: RequirementStatus.PENDING }\n}',
+      imports: [REQUIREMENT_STATUS_IMPORT]
+    })
+  }
+  if (r.configuration?.validate === true) {
+    out.push({
+      name: stubName(req.id, 'configurationValidate'),
+      signature: 'data: any',
+      returnType: 'MutationMessage[]',
+      body: '{\n  return []\n}',
+      imports: [MUTATION_MESSAGE_IMPORT]
+    })
+  }
+  if (r.configuration?.fetch === true) {
+    out.push({
+      name: stubName(req.id, 'configurationFetch'),
+      signature: 'period: any',
+      returnType: 'any',
+      body: '{\n  return {}\n}',
+      imports: []
+    })
+  }
+  if (r.configuration?.preProcessData === true) {
+    out.push({
+      name: stubName(req.id, 'configurationPreProcessData'),
+      signature: 'data: any, ctx: any',
+      returnType: 'any',
+      body: '{\n  return data\n}',
       imports: []
     })
   }
@@ -129,6 +175,9 @@ const MUTATION_MESSAGE_IMPORT: ImportRef = {
 const INVALIDATED_RESPONSE_IMPORT: ImportRef = {
   from: '@reqquest/api', name: 'InvalidatedResponse', type: true
 }
+const REQUIREMENT_STATUS_IMPORT: ImportRef = {
+  from: '@reqquest/api', name: 'RequirementStatus', type: false
+}
 
 function modelDataImport (prompt: ResolvedPrompt): ImportRef {
   return {
@@ -138,12 +187,15 @@ function modelDataImport (prompt: ResolvedPrompt): ImportRef {
   }
 }
 
-export function stubName (prompt: ResolvedPrompt, hook: string): string {
-  return `${prompt.id}${capitalize(hook)}`
+export function stubName (id: string, hook: string): string {
+  return `${id}${upperFirstChar(hook)}`
 }
 
-function capitalize (s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
+/** Add a logic-stub import to `imports` and return the symbol name to reference. */
+export function importLogicStub (imports: ImportCollector, owner: { id: string, group: string }, hook: string): string {
+  const name = stubName(owner.id, hook)
+  imports.add(logicImportPath(owner.group), name)
+  return name
 }
 
 // =============================================================================

@@ -19,6 +19,8 @@ export interface SlotContext {
   hasFetch: boolean
   spec: ResolvedSpec
   templates: TemplateRegistry
+  /** Spec path label, e.g. `prompts.haveYardPrompt.ui.form` — surfaced in errors. */
+  label: string
 }
 
 export interface SlotEmitResult {
@@ -31,7 +33,7 @@ export interface SlotEmitResult {
 export async function emitSlot (slot: SlotShape, ctx: SlotContext): Promise<SlotEmitResult> {
   const present = SLOT_DISCRIMINATORS.filter(k => k in slot)
   if (present.length > 1) {
-    throw new Error(`UI slot has conflicting discriminators: ${present.join(', ')}`)
+    throw new Error(`${ctx.label}: UI slot has conflicting discriminators (${present.join(', ')}); pick exactly one of fields / template / text / cases / component`)
   }
   switch (present[0]) {
     case 'component': return { source: shapeDStub(slot.component, ctx), preserveIfExists: true }

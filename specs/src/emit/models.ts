@@ -93,14 +93,14 @@ function printReferenceData (model: ResolvedReferenceDataModel): string {
     return [provenance, `export const ${constName} = ${model.compute}`].join('\n')
   }
   if (model.values == null) {
-    throw new Error(`reference data ${model.id} has no inlined values to emit`)
+    throw new Error(`models.${model.id}: referenceData with no values, fixture, or compute (resolver invariant violated)`)
   }
   return [provenance, `export const ${constName} = ${printValue(model.values)} as const`].join('\n')
 }
 
 function printRegularModel (model: ResolvedRegularModel, ctx: Ctx): string {
   const { schemaConst, dataType } = model.apiSymbols
-  const body = printSchemaObject(model.raw.properties, model.raw.required, ctx)
+  const body = printSchemaObject(model.raw.properties, model.raw.required, ctx, `models.${model.id}.properties`)
   return [
     `export const ${schemaConst} = ${body} as const satisfies SchemaObject`,
     `export type ${dataType} = FromSchema<typeof ${schemaConst}>`
@@ -110,23 +110,27 @@ function printRegularModel (model: ResolvedRegularModel, ctx: Ctx): string {
 function printSchemaObject (
   props: Record<string, PropShape>,
   required: string[] | undefined,
-  ctx: Ctx
+  ctx: Ctx,
+  location: string
 ): string {
   const propsBody = Object.entries(props)
-    .map(([k, shape]) => `${objectKey(k)}: ${printShape(shape, ctx)}`)
+    .map(([k, shape]) => `${objectKey(k)}: ${printShape(shape, ctx, `${location}.${k}`)}`)
     .join(', ')
   const requiredPart = required && required.length > 0 ? `, required: ${printValue(required)}` : ''
   return `{ type: 'object', properties: { ${propsBody} }, additionalProperties: false${requiredPart} }`
 }
 
-function printShape (shape: PropShape, ctx: Ctx): string {
+function printShape (shape: PropShape, ctx: Ctx, location: string): string {
   if (typeof shape === 'string' && PRIMITIVES.has(shape)) {
     return `{ type: ${quoteString(shape)} }`
   }
   if (typeof shape === 'string') {
     const ref = ctx.spec.modelById.get(shape)
-    if (!ref || ref.kind !== 'regular') {
-      throw new Error(`property references "${shape}" but no regular model with that id exists`)
+    if (!ref) {
+      throw new Error(`${location}: references model "${shape}" but no model with that id exists`)
+    }
+    if (ref.kind !== 'regular') {
+      throw new Error(`${location}: references model "${shape}" but it is referenceData (use \`enum: ${shape}\` for value/label projections instead of inlining)`)
     }
     noteExternalRef(ctx, ref, ref.apiSymbols.schemaConst)
     return ref.apiSymbols.schemaConst
@@ -136,8 +140,11 @@ function printShape (shape: PropShape, ctx: Ctx): string {
   }
   if ('enum' in shape) {
     const ref = ctx.spec.modelById.get(shape.enum)
-    if (!ref || ref.kind !== 'referenceData') {
-      throw new Error(`enum source "${shape.enum}" must be a referenceData model`)
+    if (!ref) {
+      throw new Error(`${location}.enum: references "${shape.enum}" but no model with that id exists`)
+    }
+    if (ref.kind !== 'referenceData') {
+      throw new Error(`${location}.enum: "${shape.enum}" must be a referenceData model (got regular model)`)
     }
     const constName = lowerFirstChar(ref.id)
     noteExternalRef(ctx, ref, constName)
@@ -145,12 +152,12 @@ function printShape (shape: PropShape, ctx: Ctx): string {
     return `{ type: 'string', enum: ${constName}.map(s => s.${proj}) }`
   }
   if ('array' in shape) {
-    return `{ type: 'array', items: ${printShape(shape.array, ctx)} }`
+    return `{ type: 'array', items: ${printShape(shape.array, ctx, `${location}.items`)} }`
   }
   if ('properties' in shape) {
-    return printSchemaObject(shape.properties, shape.required, ctx)
+    return printSchemaObject(shape.properties, shape.required, ctx, location)
   }
-  throw new Error(`unknown shape: ${JSON.stringify(shape)}`)
+  throw new Error(`${location}: unknown shape ${JSON.stringify(shape)}`)
 }
 
 function noteExternalRef (ctx: Ctx, model: ResolvedModel, symbol: string): void {

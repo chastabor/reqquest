@@ -113,7 +113,7 @@ export const FieldValidateRule = z.object({
 }).strict()
 export type FieldValidateRuleDef = z.infer<typeof FieldValidateRule>
 
-const ResolveRule = z.union([
+export const ResolveRule = z.union([
   z.object({
     when: z.string(),
     status: StatusName,
@@ -125,6 +125,7 @@ const ResolveRule = z.union([
     reason: z.string().optional()
   }).strict()
 ])
+export type ResolveRuleDef = z.infer<typeof ResolveRule>
 
 const ValidateBlock = z.union([HookFlag, z.object({ rules: z.array(FieldValidateRule) }).strict()])
 const ResolveBlock = z.union([HookFlag, z.object({ rules: z.array(ResolveRule) }).strict()])

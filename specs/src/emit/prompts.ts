@@ -1,16 +1,17 @@
 import type {
-  ResolvedSpec, ResolvedPrompt, ResolvedRequirement, ResolvedReferenceDataModel
+  ResolvedSpec, ResolvedPrompt, ResolvedReferenceDataModel
 } from '../ir/types.js'
 import type { PromptDef, FieldValidateRuleDef } from '../spec/schema.js'
-import { promptFilePath, indexBarrelFilePath, logicFilePath } from '../ir/derive.js'
+import { promptFilePath, indexBarrelFilePath } from '../ir/derive.js'
 import { lowerFirstChar, quoteString, objectKey, printValue } from '../codegen/ts.js'
 import { formatTS } from '../codegen/format.js'
+import { ImportCollector, modelsImportPath } from '../codegen/imports.js'
 import type { OutputBundle } from './files.js'
 import type { PromptScope, ExtractScope } from '../expr/scope.js'
 import { rewriteExpression } from '../expr/rewrite.js'
 import { emitFieldValidateBody } from './ruleBodies.js'
 import { emitInvalidates, emitRevalidates } from './invalidates.js'
-import { stubName } from './logic.js'
+import { importLogicStub } from './logic.js'
 
 export async function emitPrompts (spec: ResolvedSpec, bundle: OutputBundle): Promise<void> {
   const byGroup = new Map<string, ResolvedPrompt[]>()
@@ -32,67 +33,17 @@ export async function emitPrompts (spec: ResolvedSpec, bundle: OutputBundle): Pr
   for (const [path, src] of formatted) bundle.set(path, src)
 }
 
-// =============================================================================
-// File-level context (collects imports across all prompts in one file)
-// =============================================================================
-
 interface FileCtx {
-  ownGroup: string
   spec: ResolvedSpec
-  /** module specifier → value imports. */
-  imports: Map<string, Set<string>>
-  /** module specifier → type-only imports. */
-  typeImports: Map<string, Set<string>>
+  imports: ImportCollector
 }
 
-function noteImport (ctx: FileCtx, from: string, name: string): void {
-  const set = ctx.imports.get(from) ?? new Set<string>()
-  set.add(name)
-  ctx.imports.set(from, set)
-}
-
-function noteTypeImport (ctx: FileCtx, from: string, name: string): void {
-  const set = ctx.typeImports.get(from) ?? new Set<string>()
-  set.add(name)
-  ctx.typeImports.set(from, set)
-}
-
-function modelsImport (group: string): string {
-  return `../models/${group}.models.js`
-}
-
-// =============================================================================
-// File printer
-// =============================================================================
-
-function printGroupFile (group: string, prompts: ResolvedPrompt[], spec: ResolvedSpec): string {
-  const ctx: FileCtx = {
-    ownGroup: group,
-    spec,
-    imports: new Map(),
-    typeImports: new Map()
-  }
-  noteTypeImport(ctx, '@reqquest/api', 'PromptDefinition')
+function printGroupFile (_group: string, prompts: ResolvedPrompt[], spec: ResolvedSpec): string {
+  const ctx: FileCtx = { spec, imports: new ImportCollector() }
+  ctx.imports.addType('@reqquest/api', 'PromptDefinition')
 
   const bodies = prompts.map(p => printPrompt(p, ctx))
-  const importLines = renderImports(ctx)
-  return [...importLines, '', ...bodies.flatMap(b => [b, ''])].join('\n')
-}
-
-function renderImports (ctx: FileCtx): string[] {
-  const modules = [...new Set([...ctx.typeImports.keys(), ...ctx.imports.keys()])].sort()
-  return modules.map(mod => {
-    const types = ctx.typeImports.get(mod)
-    const values = ctx.imports.get(mod)
-    if (types && (!values || values.size === 0)) {
-      return `import type { ${[...types].sort().join(', ')} } from ${quoteString(mod)}`
-    }
-    const merged = [
-      ...(types ? [...types].map(n => `type ${n}`) : []),
-      ...(values ? [...values] : [])
-    ].sort()
-    return `import { ${merged.join(', ')} } from ${quoteString(mod)}`
-  })
+  return [...ctx.imports.render(), '', ...bodies.flatMap(b => [b, ''])].join('\n')
 }
 
 // =============================================================================
@@ -111,17 +62,17 @@ function printPrompt (prompt: ResolvedPrompt, ctx: FileCtx): string {
   if (r.navTitle != null) fields.push(`navTitle: ${quoteString(r.navTitle)}`)
 
   // schema
-  noteImport(ctx, modelsImport(prompt.model.group), prompt.model.apiSymbols.schemaConst)
+  ctx.imports.add(modelsImportPath(prompt.model.group), prompt.model.apiSymbols.schemaConst)
   fields.push(`schema: ${prompt.model.apiSymbols.schemaConst}`)
 
   // fetch
   if (typeof r.fetch === 'string') {
     const refModel = ctx.spec.modelById.get(r.fetch) as ResolvedReferenceDataModel
     const constName = lowerFirstChar(refModel.id)
-    noteImport(ctx, modelsImport(refModel.group), constName)
+    ctx.imports.add(modelsImportPath(refModel.group), constName)
     fields.push(`fetch: async () => ({ ${constName} })`)
   } else if (r.fetch === true) {
-    fields.push(`fetch: ${importLogicStub(ctx, prompt, 'fetch')}`)
+    fields.push(`fetch: ${importLogicStub(ctx.imports, prompt,'fetch')}`)
   }
 
   // gatherConfig
@@ -131,46 +82,46 @@ function printPrompt (prompt: ResolvedPrompt, ctx: FileCtx): string {
 
   // preload
   if (r.preload === true) {
-    fields.push(`preload: ${importLogicStub(ctx, prompt, 'preload')}`)
+    fields.push(`preload: ${importLogicStub(ctx.imports, prompt,'preload')}`)
   } else if (r.preload != null && typeof r.preload === 'object' && 'copyFrom' in r.preload) {
     fields.push(`preload: ${printPreloadCopy(prompt, ctx)}`)
   }
 
   // preProcessData
   if (r.preProcessData === true) {
-    fields.push(`preProcessData: ${importLogicStub(ctx, prompt, 'preProcessData')}`)
+    fields.push(`preProcessData: ${importLogicStub(ctx.imports, prompt,'preProcessData')}`)
   }
 
   // preValidate
   if (typeof r.preValidate === 'object') {
-    noteImport(ctx, '@txstate-mws/graphql-server', 'MutationMessageType')
-    noteTypeImport(ctx, '@txstate-mws/graphql-server', 'MutationMessage')
+    ctx.imports.add('@txstate-mws/graphql-server', 'MutationMessageType')
+    ctx.imports.addType('@txstate-mws/graphql-server', 'MutationMessage')
     fields.push(`preValidate: ${emitFieldValidateBody(r.preValidate.rules, promptScope)}`)
   } else if (r.preValidate === true) {
-    fields.push(`preValidate: ${importLogicStub(ctx, prompt, 'preValidate')}`)
+    fields.push(`preValidate: ${importLogicStub(ctx.imports, prompt,'preValidate')}`)
   }
 
   // validate
   if (typeof r.validate === 'object') {
-    noteImport(ctx, '@txstate-mws/graphql-server', 'MutationMessageType')
-    noteTypeImport(ctx, '@txstate-mws/graphql-server', 'MutationMessage')
+    ctx.imports.add('@txstate-mws/graphql-server', 'MutationMessageType')
+    ctx.imports.addType('@txstate-mws/graphql-server', 'MutationMessage')
     addValidateRefDataImports(r.validate.rules, ctx)
     fields.push(`validate: ${emitFieldValidateBody(r.validate.rules, promptScope)}`)
   } else if (r.validate === true) {
-    fields.push(`validate: ${importLogicStub(ctx, prompt, 'validate')}`)
+    fields.push(`validate: ${importLogicStub(ctx.imports, prompt,'validate')}`)
   }
 
   // invalidates
   if (r.invalidates != null) {
     const inv = emitInvalidates(r.invalidates, ctx.spec)
-    for (const ref of inv.externalRefs) noteOtherPromptImport(ctx, ref)
+    for (const ref of inv.externalRefs) noteOtherPromptImport(ctx, prompt, ref)
     fields.push(`invalidUponChange: ${inv.expr}`)
   }
 
   // revalidates
   if (r.revalidates != null) {
     const rev = emitRevalidates(r.revalidates, ctx.spec)
-    for (const ref of rev.externalRefs) noteOtherPromptImport(ctx, ref)
+    for (const ref of rev.externalRefs) noteOtherPromptImport(ctx, prompt, ref)
     fields.push(`validUponChange: ${rev.expr}`)
   }
 
@@ -234,7 +185,7 @@ function printTag (
   if (tag.source != null) {
     const ref = ctx.spec.modelById.get(tag.source) as ResolvedReferenceDataModel
     const constName = lowerFirstChar(ref.id)
-    noteImport(ctx, modelsImport(ref.group), constName)
+    ctx.imports.add(modelsImportPath(ref.group), constName)
     fields.push(`getTags: () => [...${constName}]`)
     fields.push(`getLabel: (tag: string) => ${constName}.find(s => s.value === tag)?.label ?? tag`)
   }
@@ -274,33 +225,23 @@ function printPromptConfiguration (prompt: ResolvedPrompt, ctx: FileCtx): string
   const cfg = prompt.raw.configuration!
   const fields: string[] = []
   if (prompt.configurationModel) {
-    noteImport(ctx, modelsImport(prompt.configurationModel.group), prompt.configurationModel.apiSymbols.schemaConst)
+    ctx.imports.add(modelsImportPath(prompt.configurationModel.group), prompt.configurationModel.apiSymbols.schemaConst)
     fields.push(`schema: ${prompt.configurationModel.apiSymbols.schemaConst}`)
   }
   if (cfg.default != null) fields.push(`default: ${printValue(cfg.default)}`)
   return `{ ${fields.join(', ')} }`
 }
 
-// =============================================================================
-// Helpers for cross-references
-// =============================================================================
-
-function noteOtherPromptImport (ctx: FileCtx, target: ResolvedPrompt): void {
-  if (target.group === ctx.ownGroup) return                                 // same file
-  noteImport(ctx, `./${target.group}.prompts.js`, target.symbolName)
-}
-
-function importLogicStub (ctx: FileCtx, prompt: ResolvedPrompt, hook: string): string {
-  const name = stubName(prompt, hook)
-  noteImport(ctx, `../logic/${prompt.group}.logic.js`, name)
-  return name
+function noteOtherPromptImport (ctx: FileCtx, current: ResolvedPrompt, target: ResolvedPrompt): void {
+  if (target.group === current.group) return
+  ctx.imports.add(`./${target.group}.prompts.js`, target.symbolName)
 }
 
 function addValidateRefDataImports (rules: FieldValidateRuleDef[], ctx: FileCtx): void {
   for (const rule of rules) {
     if (rule.source != null) {
       const ref = ctx.spec.modelById.get(rule.source) as ResolvedReferenceDataModel | undefined
-      if (ref) noteImport(ctx, modelsImport(ref.group), lowerFirstChar(ref.id))
+      if (ref) ctx.imports.add(modelsImportPath(ref.group), lowerFirstChar(ref.id))
     }
   }
 }

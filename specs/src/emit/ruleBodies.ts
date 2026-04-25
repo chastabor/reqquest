@@ -1,4 +1,4 @@
-import type { FieldValidateRuleDef } from '../spec/schema.js'
+import type { FieldValidateRuleDef, ResolveRuleDef } from '../spec/schema.js'
 import type { Scope } from '../expr/scope.js'
 import { rewriteExpression, rewriteInterpolation } from '../expr/rewrite.js'
 import { lowerFirstChar, quoteString } from '../codegen/ts.js'
@@ -7,17 +7,12 @@ export function emitFieldValidateBody (rules: FieldValidateRuleDef[], scope: Sco
   const lines: string[] = ['const messages: MutationMessage[] = []']
   for (const rule of rules) lines.push(emitFieldRule(rule, scope))
   lines.push('return messages')
-  return `(data, config) => {\n${lines.map(l => '  ' + l).join('\n')}\n}`
+  // ConfigurationDefinition.validate is `(data) => MutationMessage[]`; PromptDefinition.validate is `(data, config, …)`.
+  const sig = scope.kind === 'config' ? '(data)' : '(data, config)'
+  return `${sig} => {\n${lines.map(l => '  ' + l).join('\n')}\n}`
 }
 
-export interface ResolveRuleEmit {
-  when?: string
-  else?: true
-  status: string
-  reason?: string
-}
-
-export function emitResolveBody (rules: ResolveRuleEmit[], scope: Scope): string {
+export function emitResolveBody (rules: ResolveRuleDef[], scope: Scope): string {
   const lines = rules.map(rule => emitResolveRule(rule, scope))
   return `(data, config, configLookup) => {\n${lines.map(l => '  ' + l).join('\n')}\n}`
 }
@@ -39,7 +34,7 @@ function emitFieldRule (rule: FieldValidateRuleDef, scope: Scope): string {
     const v = sizeOrNumExpr(rule.max, scope)
     predicate = [...conds, `${dataPath} != null`, `${dataPath} > ${v}`].join(' && ')
   } else if (rule.maxSize != null) {
-    const bytes = parseSize(rule.maxSize)
+    const bytes = parseSize(rule.maxSize, rule.field)
     predicate = [...conds, `${dataPath}?.size != null`, `${dataPath}.size > ${bytes}`].join(' && ')
   } else if (rule.equalsLabelOf != null && rule.source != null) {
     const constName = lowerFirstChar(rule.source)
@@ -62,11 +57,11 @@ function emitFieldRule (rule: FieldValidateRuleDef, scope: Scope): string {
 // Resolve rule emission
 // =============================================================================
 
-function emitResolveRule (rule: ResolveRuleEmit, scope: Scope): string {
+function emitResolveRule (rule: ResolveRuleDef, scope: Scope): string {
   const reasonPart = rule.reason != null ? `, reason: ${rewriteInterpolation(rule.reason, scope)}` : ''
   const ret = `return { status: RequirementStatus.${rule.status}${reasonPart} }`
-  if (rule.else === true) return ret
-  return `if (${rewriteExpression(rule.when!, scope)}) ${ret}`
+  if ('else' in rule && rule.else === true) return ret
+  return `if (${rewriteExpression((rule as { when: string }).when, scope)}) ${ret}`
 }
 
 // =============================================================================
@@ -90,11 +85,11 @@ const SIZE_FACTORS: Record<string, number> = {
   T: 1024 ** 4, TB: 1024 ** 4
 }
 
-function parseSize (input: string | number): number {
+function parseSize (input: string | number, field: string): number {
   if (typeof input === 'number') return input
   const m = input.trim().match(SIZE_RE)
-  if (!m) throw new Error(`invalid size literal: ${input}`)
+  if (!m) throw new Error(`rule on field "${field}": maxSize "${input}" is not a valid size literal (expected e.g. "10MB", "1024", "5KB")`)
   const factor = SIZE_FACTORS[(m[2] ?? '').toUpperCase()]
-  if (factor == null) throw new Error(`invalid size unit: ${m[2]}`)
+  if (factor == null) throw new Error(`rule on field "${field}": maxSize unit "${m[2]}" is not recognized (use B/KB/MB/GB/TB)`)
   return Math.round(Number(m[1]) * factor)
 }

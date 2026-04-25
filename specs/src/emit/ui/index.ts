@@ -44,20 +44,21 @@ async function processPrompt (
 
   const promptScope: PromptScope = { kind: 'prompt', prompt }
   const hasFetch = prompt.raw.fetch != null
-  const baseCtx: Omit<SlotContext, 'scope'> = { hasFetch, spec, templates }
+  const baseCtx = { hasFetch, spec, templates }
   const namePrefix = upperFirstChar(prompt.id)
+  const labelPrefix = `prompts.${prompt.id}.ui`
 
   const binding: RegistryCollector['prompts'][number] = { key: prompt.apiKey }
 
   if (ui.form) {
     const name = namePrefix
-    const result = await emitSlot(ui.form, { ...baseCtx, scope: promptScope })
+    const result = await emitSlot(ui.form, { ...baseCtx, scope: promptScope, label: `${labelPrefix}.form` })
     write(bundle, uiComponentPath(spec.project.id, prompt.group, name), result)
     binding.formComponent = { name, importPath: uiComponentImport(prompt.group, name) }
   }
   if (ui.display) {
     const name = `${namePrefix}Display`
-    const result = await emitSlot(ui.display, { ...baseCtx, scope: promptScope })
+    const result = await emitSlot(ui.display, { ...baseCtx, scope: promptScope, label: `${labelPrefix}.display` })
     write(bundle, uiComponentPath(spec.project.id, prompt.group, name), result)
     binding.displayComponent = { name, importPath: uiComponentImport(prompt.group, name) }
   }
@@ -66,7 +67,7 @@ async function processPrompt (
     if (cfg && cfg.kind === 'regular') {
       const name = `${namePrefix}Configure`
       const configScope: ConfigScope = { kind: 'config', model: cfg }
-      const result = await emitSlot(ui.configure, { ...baseCtx, scope: configScope, hasFetch: false })
+      const result = await emitSlot(ui.configure, { ...baseCtx, scope: configScope, hasFetch: false, label: `${labelPrefix}.configure` })
       write(bundle, uiComponentPath(spec.project.id, prompt.group, name), result)
       binding.configureComponent = { name, importPath: uiComponentImport(prompt.group, name) }
     }
@@ -92,7 +93,8 @@ async function processRequirement (
   if (slot && req.configurationModel?.kind === 'regular') {
     const name = `${upperFirstChar(req.id)}Configure`
     const configScope: ConfigScope = { kind: 'config', model: req.configurationModel }
-    const result = await emitSlot(slot, { hasFetch: false, scope: configScope, spec, templates })
+    const label = `requirements.${req.id}.${req.raw.ui?.configure ? 'ui' : 'configuration.ui'}.configure`
+    const result = await emitSlot(slot, { hasFetch: false, scope: configScope, spec, templates, label })
     write(bundle, uiComponentPath(spec.project.id, req.group, name), result)
     binding.configureComponent = { name, importPath: uiComponentImport(req.group, name) }
   }
