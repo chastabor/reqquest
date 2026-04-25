@@ -2,7 +2,7 @@
 
 Author a single YAML spec; emit a complete, compilable downstream ReqQuest project (API definitions + Svelte UI + bootstrap).
 
-For framework background, read `DESIGN.md`. For the spec format reference, read `../CLAUDE.md`. This file is the operator guide — how to write a spec, run the generator, and iterate.
+For framework background, read `DESIGN.md`. For the spec format reference, read `CLAUDE.md`. This file is the operator guide — how to write a spec, run the generator, and iterate.
 
 ---
 
@@ -111,7 +111,7 @@ programs:
     requirements: [haveBigYardReq]
 ```
 
-The full grammar (every field, hook value, rule key, UI shape) is documented in `../CLAUDE.md`. Use `requirements/demo-default2.spec.yml` as a working reference covering most features.
+The full grammar (every field, hook value, rule key, UI shape) is documented in `CLAUDE.md`. Use `requirements/demo-default2.spec.yml` as a working reference covering most features.
 
 ### Identifier rules
 
@@ -330,7 +330,7 @@ Source layout:
 
 ## Where to read next
 
-- **`../CLAUDE.md`** — canonical spec format reference: every field, every hook value, every rule key, every UI shape, every cross-reference rule. Read this when authoring.
+- **`CLAUDE.md`** — canonical spec format reference: every field, every hook value, every rule key, every UI shape, every cross-reference rule. Read this when authoring.
 - **`DESIGN.md`** — framework background: how `RQServer`, `UIRegistry`, prompts/requirements/programs, access control, and the lifecycle phases fit together. Read this when the spec format isn't enough and you need to understand what the generated project does at runtime.
 - **`requirements/demo-default2.spec.yml`** — a reference spec that exercises every supported shape (Shape A/B/C, fetch from referenceData, gatherConfig, declarative invalidates/revalidates, indexes, tags, configuration with default + validate rules, workflow-stage-free programs).
 - **`resources/ui-templates/INDEX.md`** — catalog of the curated parametric Svelte templates available via Shape B (`template: <Name>`).

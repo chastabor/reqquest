@@ -59,6 +59,7 @@ reqquest-chas/
 ├── docs/          # sitemap.md + user-story docs (applicant, reviewer, configuration, roles)
 ├── specs/         # spec-driven authoring of downstream projects
 │   ├── README.md          # operator guide (write a spec, run the generator)
+│   ├── CLAUDE.md          # spec format reference (every field, every shape)
 │   ├── DESIGN.md          # this file (framework background)
 │   ├── src/               # the generator (TypeScript, Node CLI)
 │   │   ├── cli.ts            # `reqquest-gen` entry; --emit / --dry-run / --verify
@@ -384,10 +385,10 @@ Conventions worth following:
 
 ## 12. Building a New Downstream Project
 
-For greenfield projects, the recommended path is **spec-driven**: author a single YAML in `specs/requirements/` and run the generator. Operator guide at `specs/README.md`; spec format reference at `CLAUDE.md`. One command produces a complete, compilable project:
+For greenfield projects, the recommended path is **spec-driven**: author a single YAML in `specs/requirements/` and run the generator. Operator guide at `specs/README.md`; spec format reference at `specs/CLAUDE.md`. One command produces a complete, compilable project:
 
 ```bash
-npx reqquest-gen specs/requirements/<name>.spec.yml --emit --verify
+cd specs && npm run gen requirements/<name>.spec.yml -- --emit --verify
 ```
 
 Output lands at `demos/src/<project>/` (API definitions, programs, bootstrap, idempotent `logic.ts` stubs) and `ui/src/local/<project>/` (per-prompt Svelte components, copied templates, `uiRegistry.ts`). The generator tracks idempotency for hand-authored files (`logic.ts`, the bootstrap, and Shape D escape components) so re-runs preserve author edits.
