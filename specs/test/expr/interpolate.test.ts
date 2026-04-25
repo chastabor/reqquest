@@ -8,7 +8,7 @@ describe('extractInterpolations', () => {
 
   it('extracts a single segment', () => {
     expect(extractInterpolations('{{ exerciseHours }} hours a week.'))
-      .toEqual([{ expr: 'exerciseHours', offset: 0 }])
+      .toEqual([{ expr: 'exerciseHours', offset: 0, length: 19 }])
   })
 
   it('extracts multiple segments', () => {
