@@ -25,7 +25,7 @@ describe('emitLogicStubs', () => {
   it('emits a stub for every true/dynamic hook', async () => {
     const ir = await buildIR()
     const bundle = new OutputBundle()
-    await emitLogicStubs(ir, bundle, { outRoot: tmp })
+    await emitLogicStubs(ir, bundle, { repoRoot: REPO_ROOT, outRoot: tmp })
     const cat = bundle.get(LOGIC_PATH)!
     expect(cat).toMatch(/export function otherCatsVaccinesPromptPreProcessData/)
     expect(cat).toMatch(/import\s+\{\s*type\s+OtherCatsVaccinesPromptData\s*\}|import\s+type\s+\{\s*OtherCatsVaccinesPromptData\s*\}/)
@@ -46,7 +46,7 @@ describe('emitLogicStubs', () => {
     ].join('\n'), 'utf8')
 
     const bundle = new OutputBundle()
-    await emitLogicStubs(ir, bundle, { outRoot: tmp })
+    await emitLogicStubs(ir, bundle, { repoRoot: REPO_ROOT, outRoot: tmp })
     const updated = bundle.get(LOGIC_PATH)!
     expect(updated).toMatch(/hand-edited body/)
     expect(updated).toMatch(/shasum: 'edited'/)

@@ -10,6 +10,10 @@ export function lowerFirstChar (s: string): string {
   return s.length === 0 ? s : s.charAt(0).toLowerCase() + s.slice(1)
 }
 
+export function upperFirstChar (s: string): string {
+  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export function quoteString (s: string): string {
   return JSON.stringify(s)                                                  // double-quoted; prettier converts to single
 }

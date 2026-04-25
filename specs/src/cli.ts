@@ -57,7 +57,7 @@ async function main () {
     `${resolved.requirements.length} requirements, ${resolved.programs.length} programs\n`)
 
   if (!emit && !dryRun) return
-  const { bundle } = await buildEmitBundle(resolved, { outRoot })
+  const { bundle } = await buildEmitBundle(resolved, { repoRoot, outRoot })
   if (dryRun) {
     process.stdout.write(`would emit ${bundle.size} files:\n`)
     for (const path of bundle.paths()) process.stdout.write(`  ${path}\n`)

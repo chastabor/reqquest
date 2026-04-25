@@ -20,7 +20,7 @@ async function emit () {
   const spec = await parseSpec(DEMO_DEFAULT2)
   const ir = await resolveSpec(spec, { repoRoot: REPO_ROOT, specPath: DEMO_DEFAULT2 })
   const bundle = new OutputBundle()
-  await emitLogicStubs(ir, bundle, { outRoot: tmp })
+  await emitLogicStubs(ir, bundle, { repoRoot: REPO_ROOT, outRoot: tmp })
   await emitPrompts(ir, bundle)
   return bundle
 }

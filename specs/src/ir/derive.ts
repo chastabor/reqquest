@@ -52,6 +52,15 @@ export function uiComponentDir (projectId: string, group: string): string {
   return `ui/src/local/${projectId}/${group}`
 }
 
+export function uiComponentPath (projectId: string, group: string, name: string): string {
+  return `${uiComponentDir(projectId, group)}/${name}.svelte`
+}
+
+/** Module specifier for importing a per-group component from `uiRegistry.ts`. */
+export function uiComponentImport (group: string, name: string): string {
+  return `./${group}/${name}.svelte`
+}
+
 export function uiRegistryFilePath (projectId: string): string {
   return `ui/src/local/${projectId}/uiRegistry.ts`
 }
