@@ -1,0 +1,287 @@
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+import { parseSpec, parseSpecFromString } from '../../src/spec/parse.js'
+import { resolveSpec } from '../../src/ir/resolve.js'
+import { validateSpec, SpecValidationError } from '../../src/validate/index.js'
+
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), '../../../..')
+const DEMO_DEFAULT2 = resolve(REPO_ROOT, 'specs/requirements/demo-default2.spec.yml')
+
+async function ir (yaml: string, fakePath = '<inline>') {
+  const spec = parseSpecFromString(yaml, fakePath)
+  return resolveSpec(spec, { repoRoot: REPO_ROOT, specPath: fakePath })
+}
+
+describe('validateSpec — demo-default2', () => {
+  it('validates the canonical spec without issues', async () => {
+    const spec = await parseSpec(DEMO_DEFAULT2)
+    const r = await resolveSpec(spec, { repoRoot: REPO_ROOT, specPath: DEMO_DEFAULT2 })
+    expect(() => validateSpec(r)).not.toThrow()
+  })
+})
+
+describe('validateSpec — invariants', () => {
+  it('flags apiKey collisions across prompts and requirements', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  shared: { title: P, model: M }
+requirements:
+  shared:
+    phase: APPROVAL
+    title: R
+    prompts: [shared]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [shared] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/apiKey collision: "shared"/)
+  })
+
+  it('flags WORKFLOW phase used outside a workflow stage', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  wfReq:
+    phase: WORKFLOW
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [wfReq] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/phase WORKFLOW/)
+  })
+})
+
+describe('validateSpec — fields', () => {
+  it('flags an unknown rule.field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: notReal, required: true, message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    try {
+      validateSpec(r)
+      throw new Error('expected validation error')
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(SpecValidationError)
+      expect(err.message).toMatch(/unknown field "notReal"/)
+    }
+  })
+
+  it('flags an invalidates path that is not boolean', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { num: number } }
+prompts:
+  p:
+    title: P
+    model: M
+    invalidates:
+      whenAnyFalse: [num]
+      targets: [p]
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/should resolve to a boolean field/)
+  })
+
+  it('flags gatherConfig referencing a non-existent property on the source', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M:    { group: g, properties: { x: string } }
+  Cfg:  { group: g, properties: { real: number } }
+prompts:
+  p:
+    title: P
+    model: M
+    gatherConfig:
+      r: [missing]
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration: { model: Cfg, default: { real: 1 } }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/gatherConfig\.r/)
+  })
+})
+
+describe('validateSpec — expressions', () => {
+  it('flags an unknown identifier in a resolve rule', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve:
+      rules:
+        - { when: "p.bogus == null", status: PENDING }
+        - { else: true, status: MET }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "bogus"/)
+  })
+
+  it('flags an unknown field in interpolation', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, required: true, message: "got {{ ghost }}" }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "ghost"/)
+  })
+})
+
+describe('validateSpec — UI', () => {
+  it('flags an unknown path in a Shape A field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    ui:
+      form:
+        fields:
+          - FieldText: { path: doesNotExist, labelText: Lol }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "doesNotExist"/)
+  })
+
+  it('flags an unknown identifier in a Shape A conditional', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string, y: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    ui:
+      form:
+        fields:
+          - FieldText: { path: y, conditional: "missing" }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "missing"/)
+  })
+
+  it('flags an unknown interpolation in display text', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    ui:
+      display:
+        text: "{{ ghost }}"
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "ghost"/)
+  })
+})

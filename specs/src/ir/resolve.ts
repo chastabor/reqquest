@@ -1,4 +1,7 @@
-import type { Spec, PromptDef, RequirementDef, ModelDef, Status } from '../spec/schema.js'
+import type {
+  Spec, PromptDef, RequirementDef, ModelDef, Status,
+  RegularModelDef, ReferenceDataModelDef
+} from '../spec/schema.js'
 import { loadFixture } from '../spec/fixtures.js'
 import {
   toSnakeCase, modelSymbols,
@@ -246,55 +249,64 @@ async function buildModel (
   opts: ResolveOpts,
   log: (msg: string) => void
 ): Promise<ResolvedModel> {
-  const filePath = modelFilePath(projectId, raw.group)
-  const apiSymbols = modelSymbols(id)
+  if (isReferenceData(raw)) {
+    return buildRefDataModel(id, raw, projectId, opts, log)
+  }
+  return {
+    id,
+    group: raw.group,
+    apiSymbols: modelSymbols(id),
+    filePath: modelFilePath(projectId, raw.group),
+    kind: 'regular',
+    raw
+  }
+}
 
-  if ('kind' in raw && raw.kind === 'referenceData') {
-    let values: unknown[] | null = null
-    let compute: string | null = null
-    let sourceLabel: string
+function isReferenceData (raw: ModelDef): raw is ReferenceDataModelDef {
+  return 'kind' in raw
+}
 
-    if (raw.values != null) {
-      values = raw.values
-      sourceLabel = 'inline values:'
-    } else if (raw.fixture != null) {
-      sourceLabel = raw.fixture
-      try {
-        values = await loadFixture(raw.fixture, { repoRoot: opts.repoRoot })
-      } catch (err: any) {
-        log(`models.${id}.fixture: ${err.message}`)
-        values = []
-      }
-    } else if (raw.compute != null) {
-      compute = raw.compute
-      sourceLabel = `compute: ${raw.compute}`
-    } else {
-      // Should already have been caught by zod's refine.
-      log(`models.${id}: referenceData requires one of values / fixture / compute`)
-      sourceLabel = '<missing>'
+async function buildRefDataModel (
+  id: string,
+  raw: ReferenceDataModelDef,
+  projectId: string,
+  opts: ResolveOpts,
+  log: (msg: string) => void
+): Promise<ResolvedReferenceDataModel> {
+  let values: unknown[] | null = null
+  let compute: string | null = null
+  let sourceLabel: string
+
+  if (raw.values != null) {
+    values = raw.values
+    sourceLabel = 'inline values:'
+  } else if (raw.fixture != null) {
+    sourceLabel = raw.fixture
+    try {
+      values = await loadFixture(raw.fixture, { repoRoot: opts.repoRoot })
+    } catch (err: any) {
+      log(`models.${id}.fixture: ${err.message}`)
+      values = []
     }
-
-    const model: ResolvedReferenceDataModel = {
-      id,
-      group: raw.group,
-      apiSymbols,
-      filePath,
-      kind: 'referenceData',
-      raw,
-      values,
-      compute,
-      sourceLabel
-    }
-    return model
+  } else if (raw.compute != null) {
+    compute = raw.compute
+    sourceLabel = `compute: ${raw.compute}`
+  } else {
+    // Should already have been caught by zod's refine.
+    log(`models.${id}: referenceData requires one of values / fixture / compute`)
+    sourceLabel = '<missing>'
   }
 
   return {
     id,
     group: raw.group,
-    apiSymbols,
-    filePath,
-    kind: 'regular',
-    raw
+    apiSymbols: modelSymbols(id),
+    filePath: modelFilePath(projectId, raw.group),
+    kind: 'referenceData',
+    raw,
+    values,
+    compute,
+    sourceLabel
   }
 }
 

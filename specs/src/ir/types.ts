@@ -1,5 +1,6 @@
 import type {
-  ModelDef, PromptDef, RequirementDef, ProgramDef, Status
+  PromptDef, RequirementDef, ProgramDef, Status,
+  RegularModelDef, ReferenceDataModelDef
 } from '../spec/schema.js'
 import type { ModelSymbols } from './derive.js'
 
@@ -30,15 +31,16 @@ interface ResolvedModelBase {
   group: string
   apiSymbols: ModelSymbols
   filePath: string
-  raw: ModelDef
 }
 
 export interface ResolvedRegularModel extends ResolvedModelBase {
   kind: 'regular'
+  raw: RegularModelDef
 }
 
 export interface ResolvedReferenceDataModel extends ResolvedModelBase {
   kind: 'referenceData'
+  raw: ReferenceDataModelDef
   /** Inlined values (from `values:`, loaded from `fixture:`, or computed via `compute:`). */
   values: unknown[] | null                                                  // null when `compute:` is used — generator emits the expression, not a literal
   /** The TS expression from `compute:`, if used. */

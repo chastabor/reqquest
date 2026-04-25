@@ -2,6 +2,7 @@
 import { resolve } from 'node:path'
 import { parseSpec } from './spec/parse.js'
 import { resolveSpec } from './ir/resolve.js'
+import { validateSpec } from './validate/index.js'
 
 interface Args {
   specPath: string
@@ -34,6 +35,7 @@ async function main () {
   const { specPath, repoRoot } = parseArgs(process.argv)
   const spec = await parseSpec(specPath)
   const resolved = await resolveSpec(spec, { repoRoot, specPath })
+  validateSpec(resolved)
   process.stdout.write(`parsed ${specPath}: project=${resolved.project.id}, ` +
     `${resolved.models.length} models, ${resolved.prompts.length} prompts, ` +
     `${resolved.requirements.length} requirements, ${resolved.programs.length} programs\n`)

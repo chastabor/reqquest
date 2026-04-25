@@ -1,10 +1,13 @@
-export { parseSpec } from './spec/parse.js'
-export { loadFixture } from './spec/fixtures.js'
-export { resolveSpec } from './ir/resolve.js'
-export type { Spec } from './spec/schema.js'
+export { parseSpec, parseSpecFromString, SpecParseError } from './spec/parse.js'
+export { loadFixture, FixtureLoadError } from './spec/fixtures.js'
+export { resolveSpec, SpecResolveError } from './ir/resolve.js'
+export { validateSpec, SpecValidationError } from './validate/index.js'
+export type { Spec, Status } from './spec/schema.js'
 export type {
   ResolvedSpec,
   ResolvedModel,
+  ResolvedRegularModel,
+  ResolvedReferenceDataModel,
   ResolvedPrompt,
   ResolvedRequirement,
   ResolvedProgram

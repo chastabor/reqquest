@@ -72,13 +72,14 @@ const ReferenceDataShape = z.union([
 
 const ReferenceDataValues = z.array(z.record(z.string(), z.unknown()))
 
-const RegularModel = z.object({
+export const RegularModel = z.object({
   group: z.string(),
   required: z.array(z.string()).optional(),
   properties: z.record(z.string(), PropShape)
 }).strict()
+export type RegularModelDef = z.infer<typeof RegularModel>
 
-const ReferenceDataModel = z.object({
+export const ReferenceDataModel = z.object({
   group: z.string(),
   kind: z.literal('referenceData'),
   shape: ReferenceDataShape,
@@ -89,6 +90,7 @@ const ReferenceDataModel = z.object({
   m => Number(m.values != null) + Number(m.fixture != null) + Number(m.compute != null) === 1,
   { message: 'referenceData model must have exactly one of values / fixture / compute' }
 )
+export type ReferenceDataModelDef = z.infer<typeof ReferenceDataModel>
 
 export const ModelDef = z.union([RegularModel, ReferenceDataModel])
 export type ModelDef = z.infer<typeof ModelDef>
@@ -97,7 +99,7 @@ export type ModelDef = z.infer<typeof ModelDef>
 // Rules (CLAUDE.md §6.5)
 // =============================================================================
 
-const FieldValidateRule = z.object({
+export const FieldValidateRule = z.object({
   field: z.string(),
   required: z.boolean().optional(),
   requiredWhen: z.string().optional(),
@@ -109,6 +111,7 @@ const FieldValidateRule = z.object({
   equalsLabelOf: z.string().optional(),                                     // cross-field equality (e.g. stateName equals label of state)
   source: z.string().optional()                                             // referenceData source for equalsLabelOf
 }).strict()
+export type FieldValidateRuleDef = z.infer<typeof FieldValidateRule>
 
 const ResolveRule = z.union([
   z.object({
