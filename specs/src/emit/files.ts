@@ -1,5 +1,6 @@
-import { mkdir, stat, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { fileExists } from '../util/fs.js'
 
 /**
  * Virtual-fs accumulator. Each emit phase calls `set()` with a
@@ -48,11 +49,3 @@ export class OutputBundle {
   }
 }
 
-async function fileExists (path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    return false
-  }
-}

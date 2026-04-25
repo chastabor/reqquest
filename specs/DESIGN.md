@@ -58,7 +58,18 @@ reqquest-chas/
 │       │   └── testdata.ts         (migrations for seed data / test users)
 ├── docs/          # sitemap.md + user-story docs (applicant, reviewer, configuration, roles)
 ├── specs/         # spec-driven authoring of downstream projects
+│   ├── README.md          # operator guide (write a spec, run the generator)
 │   ├── DESIGN.md          # this file (framework background)
+│   ├── src/               # the generator (TypeScript, Node CLI)
+│   │   ├── cli.ts            # `reqquest-gen` entry; --emit / --dry-run / --verify
+│   │   ├── spec/             # YAML parser + zod schema + fixture loader
+│   │   ├── ir/               # ResolvedSpec (cross-refs linked, names derived)
+│   │   ├── validate/         # invariants, fields, expressions, UI checks
+│   │   ├── expr/             # rule-grammar parser + scope-aware rewriter
+│   │   ├── emit/             # per-phase emitters (models / prompts / reqs / programs / bootstrap / ui)
+│   │   ├── codegen/          # TS + Svelte source primitives, prettier wrapper
+│   │   └── verify/           # tsc + svelte-check runner
+│   ├── test/              # vitest — 24 files / 175 tests
 │   ├── requirements/      # demo-*.spec.yml — one YAML per downstream project
 │   └── resources/         # author-supplied assets the generator inlines / copies
 │       ├── data/             # static fixtures referenced by `kind: referenceData` (e.g. states.yml)
@@ -371,20 +382,26 @@ Conventions worth following:
 
 ---
 
-## 12. Building a New Downstream Project — Checklist
+## 12. Building a New Downstream Project
 
-Starting a new ReqQuest project (analogous to cloning one of the `demos/src/*` subfolders + corresponding `ui/src/local/*`). For greenfield projects, prefer the spec-driven path: author a single YAML in `specs/requirements/` and run the generator (see `CLAUDE.md`) — the steps below describe what the generator (or a hand-author) ends up producing:
+For greenfield projects, the recommended path is **spec-driven**: author a single YAML in `specs/requirements/` and run the generator. Operator guide at `specs/README.md`; spec format reference at `CLAUDE.md`. One command produces a complete, compilable project:
 
-1. **Define data shapes** — a `models/` directory of JSON Schemas + `FromSchema` types, one per prompt.
-2. **Write prompts** — `PromptDefinition` per data shape. Decide on `validate` vs `preValidate`, any `preload` / `fetch` / `indexes` / `tags` / `preProcessData`.
-3. **Write requirements** — `RequirementDefinition`s that reference those prompts. Choose `RequirementType` for each (drives lifecycle phase). Implement `resolve()` purely from prompt data + config.
-4. **Write programs** — list requirement keys in the desired applicant-navigation order. Add `workflowStages` if second-eyes review is needed.
-5. **Write API bootstrap** — `RQServer.start({ appConfig: { userLookups, groups, hooks }, programs, requirements, prompts, migrations })`. Provide `userLookups.byLogins` against your auth source.
-6. **Write DB migrations** — install seed roles / periods / test data as needed.
-7. **Write Svelte components** — one `*Prompt.svelte` form and one `*PromptDisplay.svelte` per prompt, configure forms for requirements/prompts that need admin tuning.
-8. **Build the UIRegistry** — instantiate `UIRegistry({ appName, programs, requirements, prompts, terminology, slots })` and export it for the framework routes to consume.
-9. **Wire access** — seed initial roles via a migration (see `demos/src/default/testdata.ts` for the `Su` role pattern).
-10. **Test** — Playwright suites hitting `docker compose` stack.
+```bash
+npx reqquest-gen specs/requirements/<name>.spec.yml --emit --verify
+```
+
+Output lands at `demos/src/<project>/` (API definitions, programs, bootstrap, idempotent `logic.ts` stubs) and `ui/src/local/<project>/` (per-prompt Svelte components, copied templates, `uiRegistry.ts`). The generator tracks idempotency for hand-authored files (`logic.ts`, the bootstrap, and Shape D escape components) so re-runs preserve author edits.
+
+What the spec author writes vs. what the generator emits:
+
+| Author writes                | Generator emits                                                              |
+|------------------------------|------------------------------------------------------------------------------|
+| YAML spec (1 file)           | JSON Schemas + `FromSchema` types, prompt/requirement/program definitions    |
+| Optional logic-stub bodies   | Function stubs for any `validate: true` / `resolve: true` / `dynamic` hooks  |
+| Optional Shape D components  | Minimal Svelte stubs for `component:` slots (only when missing)              |
+| Optional bootstrap edits     | A starting `index.ts` that calls `RQServer.start({...})`                     |
 
 The framework owns: persistence, lifecycle transitions, phase/status computation, authorization evaluation, dashboards, list filters, period management, role management, audit logs, email hooks, file downloads, workflow stage advancement, and the GraphQL API.
-The project owns: data, business rules, form UX, display UX, and the connective wiring above.
+The project owns: data shapes, business rules (rule expressions or imperative bodies), form UX, display UX, and the auth-source wiring at the bootstrap.
+
+If you'd rather hand-author (no generator), the produced project shape is the contract: a `definitions/` tree with `models/`, `prompts/`, `requirements/`, `programs.ts`, optional `logic/`, and a `RQServer.start(...)` bootstrap. See any `demos/src/*` for working hand-written examples.

@@ -4,6 +4,7 @@ import { parseSpec } from './spec/parse.js'
 import { resolveSpec } from './ir/resolve.js'
 import { validateSpec } from './validate/index.js'
 import { buildEmitBundle } from './emit/index.js'
+import { verify, type CheckResult } from './verify/index.js'
 
 interface Args {
   specPath: string
@@ -11,18 +12,20 @@ interface Args {
   outRoot: string
   emit: boolean
   dryRun: boolean
+  verify: boolean
 }
 
 function parseArgs (argv: string[]): Args {
   const args = argv.slice(2)
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     process.stdout.write(
-      'usage: reqquest-gen <spec-path> [--repo-root <path>] [--out <path>] [--emit] [--dry-run]\n' +
+      'usage: reqquest-gen <spec-path> [--repo-root <path>] [--out <path>] [--emit] [--dry-run] [--verify]\n' +
       '  <spec-path>   path to a YAML spec, e.g. specs/requirements/demo-default2.spec.yml\n' +
       '  --repo-root   repository root for resolving fixture paths (default: cwd)\n' +
       '  --out         where to write generated files (default: --repo-root)\n' +
       '  --emit        write generated files (off: parse + validate only)\n' +
-      '  --dry-run     compute the bundle but list paths instead of writing\n'
+      '  --dry-run     compute the bundle but list paths instead of writing\n' +
+      '  --verify      after --emit, run tsc + svelte-check on the emit target\n'
     )
     process.exit(args.length === 0 ? 1 : 0)
   }
@@ -31,6 +34,7 @@ function parseArgs (argv: string[]): Args {
   let outRoot: string | null = null
   let emit = false
   let dryRun = false
+  let verifyFlag = false
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--repo-root') {
       repoRoot = resolve(args[++i]!)
@@ -40,15 +44,17 @@ function parseArgs (argv: string[]): Args {
       emit = true
     } else if (args[i] === '--dry-run') {
       dryRun = true
+    } else if (args[i] === '--verify') {
+      verifyFlag = true
     } else {
       throw new Error(`unknown arg: ${args[i]}`)
     }
   }
-  return { specPath, repoRoot, outRoot: outRoot ?? repoRoot, emit, dryRun }
+  return { specPath, repoRoot, outRoot: outRoot ?? repoRoot, emit, dryRun, verify: verifyFlag }
 }
 
 async function main () {
-  const { specPath, repoRoot, outRoot, emit, dryRun } = parseArgs(process.argv)
+  const { specPath, repoRoot, outRoot, emit, dryRun, verify: verifyFlag } = parseArgs(process.argv)
   const spec = await parseSpec(specPath)
   const resolved = await resolveSpec(spec, { repoRoot, specPath })
   validateSpec(resolved)
@@ -65,6 +71,23 @@ async function main () {
   }
   await bundle.flush(outRoot)
   process.stdout.write(`emitted ${bundle.size} files under ${outRoot}\n`)
+
+  if (!verifyFlag) return
+  const result = await verify({ outRoot })
+  for (const check of result.checks) printCheckResult(check)
+  if (!result.passed) process.exit(1)
+}
+
+function printCheckResult (check: CheckResult): void {
+  if (check.skipped) {
+    process.stdout.write(`- ${check.name}: skipped — ${check.output}\n`)
+    return
+  }
+  if (check.passed) {
+    process.stdout.write(`✓ ${check.name} passed\n`)
+    return
+  }
+  process.stdout.write(`✗ ${check.name} failed:\n${check.output}\n`)
 }
 
 main().catch(err => {
