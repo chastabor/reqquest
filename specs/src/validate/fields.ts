@@ -1,6 +1,6 @@
 import type { ResolvedSpec, ResolvedPrompt, ResolvedRequirement, ResolvedRegularModel, ResolvedModel } from '../ir/types.js'
 import type { PromptDef } from '../spec/schema.js'
-import { lookupModelField, isBooleanShape, isStringShape } from '../ir/fields.js'
+import { lookupModelField, isBooleanShape, isStringShape, isCompatibleScalar } from '../ir/fields.js'
 
 type Logger = (msg: string) => void
 type RuleBlock = NonNullable<PromptDef['validate']>
@@ -114,6 +114,22 @@ function walkRules (
     }
     if (rule.matchesFlags != null && rule.matches == null) {
       log(`${ctx}.matchesFlags: requires "matches" to be set`)
+    }
+    if (rule.oneOf != null && rule.noneOf != null) {
+      log(`${ctx}: cannot set both "oneOf" and "noneOf" on the same rule`)
+    }
+    for (const key of ['oneOf', 'noneOf'] as const) {
+      const list = rule[key]
+      if (list == null) continue
+      if (list.length === 0) {
+        log(`${ctx}.${key}: list cannot be empty`)
+        continue
+      }
+      if (!result.found) continue
+      const bad = list.find(v => !isCompatibleScalar(result.shape, v))
+      if (bad !== undefined) {
+        log(`${ctx}.${key}: value ${JSON.stringify(bad)} is not compatible with field "${rule.field}" on ${model.id}`)
+      }
     }
   })
 }

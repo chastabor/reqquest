@@ -1,7 +1,7 @@
 import type { FieldValidateRuleDef, ResolveRuleDef } from '../spec/schema.js'
 import type { Scope } from '../expr/scope.js'
 import { rewriteExpression, rewriteInterpolation } from '../expr/rewrite.js'
-import { lowerFirstChar, quoteString } from '../codegen/ts.js'
+import { lowerFirstChar, printValue, quoteString } from '../codegen/ts.js'
 
 export function emitFieldValidateBody (rules: FieldValidateRuleDef[], scope: Scope): string {
   const lines: string[] = ['const messages: MutationMessage[] = []']
@@ -46,6 +46,10 @@ function emitFieldRule (rule: FieldValidateRuleDef, scope: Scope): string {
   } else if (rule.matches != null) {
     const re = new RegExp(rule.matches, rule.matchesFlags ?? '')
     predicate = [...conds, `${dataPath} != null`, `!${re.toString()}.test(${dataPath})`].join(' && ')
+  } else if (rule.oneOf != null) {
+    predicate = [...conds, `${dataPath} != null`, `!${printValue(rule.oneOf)}.includes(${dataPath})`].join(' && ')
+  } else if (rule.noneOf != null) {
+    predicate = [...conds, `${dataPath} != null`, `${printValue(rule.noneOf)}.includes(${dataPath})`].join(' && ')
   } else {
     predicate = [...conds, `${dataPath} == null`].join(' && ')
   }

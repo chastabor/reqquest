@@ -22,9 +22,9 @@
 # express the original behavior:
 #
 # - stateResidencePrompt — regex on phone/email/zip is now expressible
-#   via `matches:` (SPECS.md §6.5), so `validate:` is rule-driven.
-#   File-size check + MIME-type check (rule grammar handles `maxSize:`
-#   but not MIME) → preValidate: true. Shasum hashing → preProcessData: true.
+#   via `matches:`, and the upload MIME-type check via `oneOf:`, so both
+#   `validate:` and `preValidate:` are rule-driven (SPECS.md §6.5).
+#   Shasum hashing still requires the imperative hook → preProcessData: true.
 #   Legend text interpolates `{{config.residentOfState}}`, which the
 #   generator now rewrites to `gatheredConfigData.residentOfState` in
 #   Svelte (SPECS.md §6.5).
@@ -166,9 +166,12 @@ prompts:
           isResident: residentOfRequiredState
           stateLabel: "{{config.residentOfState}}"
           notResidentMessage: "Not a resident of {{config.residentOfState}}."
-    # File-size + MIME-type guard on the upload — `maxSize:` is rule-able
-    # but the MIME check is not, so the whole hook is author-written.
-    preValidate: true
+    preValidate:
+      rules:
+        - { field: residentIdDoc, maxSize: '10MB',
+            message: "This document is too large, please upload a file less than 10MB." }
+        - { field: residentIdDoc.mime, oneOf: ['image/jpeg'],
+            message: "File must be of type .jpeg or .jpg" }
     # Hashes uploaded files into `residentIdDoc.shasum`.
     preProcessData: true
     validate:

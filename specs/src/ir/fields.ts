@@ -63,6 +63,16 @@ export function isStringShape (shape: PropShape | null): boolean {
   return typeof shape === 'object' && shape !== null && 'format' in shape
 }
 
+/** Returns true if a scalar literal is plausibly a value of the field's leaf shape. Permissive for `{ enum: ... }` and model refs (we don't follow refs here). */
+export function isCompatibleScalar (shape: PropShape | null, value: string | number | boolean): boolean {
+  if (typeof value === 'boolean') return isBooleanShape(shape)
+  if (typeof value === 'number') return isNumericShape(shape)
+  if (isStringShape(shape)) return true
+  if (shape === 'number' || shape === 'boolean') return false
+  if (typeof shape === 'object' && shape !== null && ('array' in shape || 'properties' in shape)) return false
+  return true
+}
+
 function resolveToObjectShape (
   shape: PropShape,
   modelById: Map<string, ResolvedModel>

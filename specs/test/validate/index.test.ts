@@ -202,6 +202,111 @@ programs:
     expect(() => validateSpec(r)).toThrow(/requires "matches" to be set/)
   })
 
+  it('flags oneOf on a number field with string values', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { n: number } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: n, oneOf: ["a", "b"], message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/not compatible with field "n"/)
+  })
+
+  it('flags both oneOf and noneOf set on the same rule', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, oneOf: ["a"], noneOf: ["b"], message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/cannot set both "oneOf" and "noneOf"/)
+  })
+
+  it('flags oneOf with empty list', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, oneOf: [], message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/list cannot be empty/)
+  })
+
+  it('accepts oneOf with matching value types on a nested string field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { doc: Upload } }
+  Upload: { group: g, properties: { mime: string, size: number } }
+prompts:
+  p:
+    title: P
+    model: M
+    preValidate:
+      rules:
+        - { field: doc.mime, oneOf: ["image/jpeg", "image/png"], message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).not.toThrow()
+  })
+
   it('accepts a valid regex on a string field', async () => {
     const yaml = `
 specVersion: 2

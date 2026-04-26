@@ -195,6 +195,8 @@ or more `MutationMessage`s. Common keys:
 | `maxSize:`         | Upload size limit (`"10MB"`, `1024`, …); `preValidate` only.             |
 | `matches:`         | Regex source string. Field is invalid (emits `message`) when the value is non-null and **does not** match. Pattern is compiled at generation time, so syntax errors fail the build. Field must be string-typed. |
 | `matchesFlags:`    | Optional regex flags for `matches:` (e.g. `"i"`, `"u"`, `"iu"`). Requires `matches:`. |
+| `oneOf:`           | Allowed-value list (`[string \| number \| boolean]`). Field is invalid when the value is non-null and **not** in the list. Mutually exclusive with `noneOf:`. List values must match the field's leaf type. |
+| `noneOf:`          | Forbidden-value list (`[string \| number \| boolean]`). Field is invalid when the value is non-null and **is** in the list. Mutually exclusive with `oneOf:`. List values must match the field's leaf type. |
 | `equalsLabelOf:`   | Cross-field equality. Asserts `data.<field>` equals the matching label of `data.<equalsLabelOf>` from `source:`. Used for `value`/`label` mirrors over reference data. |
 | `source:`          | A `<ReferenceDataId>` (referenceData model id). Required when `equalsLabelOf:` is set. |
 | `messageType:`     | `error` (default) or `warning`. `warning` does not block save but blocks resolution. |

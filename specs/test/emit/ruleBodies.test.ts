@@ -98,6 +98,26 @@ describe('emitFieldValidateBody', () => {
     ], scope)
     expect(body).toContain('(data.state) && data.stateName != null && !/^[A-Z]/.test(data.stateName)')
   })
+
+  it('emits oneOf inclusion check', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('otherCatsVaccinesPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'distemperDoc.mime', oneOf: ['image/jpeg', 'image/png'], message: 'bad mime' }
+    ], scope)
+    expect(body).toContain('data.distemperDoc?.mime != null && !["image/jpeg", "image/png"].includes(data.distemperDoc?.mime)')
+  })
+
+  it('emits noneOf exclusion check', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('otherCatsVaccinesPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'distemperDoc.mime', noneOf: ['application/x-msdownload'], message: 'no exes' }
+    ], scope)
+    expect(body).toContain('data.distemperDoc?.mime != null && ["application/x-msdownload"].includes(data.distemperDoc?.mime)')
+  })
 })
 
 describe('emitResolveBody', () => {
