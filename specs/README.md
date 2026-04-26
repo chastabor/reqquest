@@ -166,6 +166,8 @@ Validation, resolution, and side-effect hooks accept three forms:
 
 Logic-file emission is **idempotent** — re-running the generator only adds new stubs; existing function bodies are preserved.
 
+When `resolve: true`, the requirement must declare `emits:` (the set of statuses its function may return). The generator narrows the stub's return type to that set: `status` is typed as a union of `RequirementStatus.<X>` literals, so a return outside the declared list fails typecheck. See SPECS.md §6.5 "emits derivation".
+
 ---
 
 ## Pipeline (what `--emit` actually does)

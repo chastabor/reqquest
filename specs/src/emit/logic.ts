@@ -131,11 +131,13 @@ function stubsForRequirement (req: ResolvedRequirement): StubSpec[] {
   const out: StubSpec[] = []
   const r = req.raw
   if (r.resolve === true) {
+    const statusUnion = req.emits.map(s => `RequirementStatus.${s}`).join(' | ')
+    const defaultStatus = req.emits.includes('PENDING') ? 'PENDING' : req.emits[0]
     out.push({
       name: stubName(req.id, 'resolve'),
       signature: 'data: any, config: any, configLookup: any',
-      returnType: '{ status: RequirementStatus, reason?: string }',
-      body: '{\n  return { status: RequirementStatus.PENDING }\n}',
+      returnType: `{ status: ${statusUnion}, reason?: string }`,
+      body: `{\n  return { status: RequirementStatus.${defaultStatus} }\n}`,
       imports: [REQUIREMENT_STATUS_IMPORT]
     })
   }

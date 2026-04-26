@@ -398,7 +398,7 @@ What the spec author writes vs. what the generator emits:
 | Author writes                | Generator emits                                                              |
 |------------------------------|------------------------------------------------------------------------------|
 | YAML spec (1 file)           | JSON Schemas + `FromSchema` types, prompt/requirement/program definitions    |
-| Optional logic-stub bodies   | Function stubs for any `validate: true` / `resolve: true` / `dynamic` hooks  |
+| Optional logic-stub bodies   | Function stubs for any `validate: true` / `resolve: true` / `dynamic` hooks. `resolve: true` stubs narrow `status` to a union of `RequirementStatus.<X>` literals taken from the requirement's `emits:`, so the spec's declared status set is enforced at typecheck time. |
 | Optional Shape D components  | Minimal Svelte stubs for `component:` slots (only when missing)              |
 | Optional bootstrap edits     | A starting `index.ts` that calls `RQServer.start({...})`                     |
 

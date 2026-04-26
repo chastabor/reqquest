@@ -31,6 +31,33 @@ describe('emitLogicStubs', () => {
     expect(cat).toMatch(/import\s+\{\s*type\s+OtherCatsVaccinesPromptData\s*\}|import\s+type\s+\{\s*OtherCatsVaccinesPromptData\s*\}/)
   })
 
+  it('narrows resolve stub return type to the requirement\'s emits', async () => {
+    const ir = await buildIR()
+    const bundle = new OutputBundle()
+    await emitLogicStubs(ir, bundle, { repoRoot: REPO_ROOT, outRoot: tmp })
+    const cat = bundle.get(LOGIC_PATH)!
+
+    // Each stub's signature: from the function name through the next `}` (close of the return-type object).
+    const sigOf = (fn: string): string => {
+      const re = new RegExp(`export function ${fn}[\\s\\S]*?\\}\\s*\\{`)
+      const m = cat.match(re)
+      if (!m) throw new Error(`could not locate signature for ${fn}`)
+      return m[0]
+    }
+    const expectStatuses = (sig: string, expected: string[], notExpected: string[] = []): void => {
+      for (const s of expected) expect(sig).toContain(`RequirementStatus.${s}`)
+      for (const s of notExpected) expect(sig).not.toContain(`RequirementStatus.${s}`)
+    }
+    // otherCatsApplicantReq emits: [PENDING, MET, NOT_APPLICABLE]
+    expectStatuses(sigOf('otherCatsApplicantReqResolve'),
+      ['PENDING', 'MET', 'NOT_APPLICABLE'], ['DISQUALIFYING', 'WARNING'])
+    // otherCatsReviewerReq emits: [PENDING, MET, DISQUALIFYING, NOT_APPLICABLE]
+    expectStatuses(sigOf('otherCatsReviewerReqResolve'),
+      ['PENDING', 'MET', 'DISQUALIFYING', 'NOT_APPLICABLE'], ['WARNING'])
+    // The broad RequirementStatus fallback should never appear in a stub signature.
+    expect(cat).not.toMatch(/status: RequirementStatus[,\s\n]/)
+  })
+
   it('preserves an existing function body when re-running', async () => {
     const ir = await buildIR()
     const fullPath = join(tmp, LOGIC_PATH)

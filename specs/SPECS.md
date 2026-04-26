@@ -165,7 +165,7 @@ Hook-to-signature mapping for the `true` / `dynamic` stubs:
 
 | Field on requirement / config      | Emitted signature                                                  |
 |------------------------------------|--------------------------------------------------------------------|
-| `resolve`                          | `(appRequestData, config, configLookup) => { status, reason? }`    |
+| `resolve`                          | `(appRequestData, config, configLookup) => { status: <emits-union>, reason? }` — `status` is typed as a union of `RequirementStatus.<X>` literals taken from the requirement's `emits:` list, so a return outside the declared set fails typecheck. |
 | `configuration.validate`           | `(data) => MutationMessage[]`                                      |
 | `configuration.fetch`              | `(period) => any`                                                  |
 | `configuration.preProcessData`     | `(data, ctx) => ConfigData`                                        |
@@ -287,6 +287,17 @@ asserts the explicit `emits:` exactly equals the derived set.
 see what an author-written function may return). It is also accepted on
 rule-based requirements as documentation, but is checked for parity, not
 used.
+
+When `resolve: true`, the generated stub's return type narrows
+`status` to a union of `RequirementStatus.<X>` literals built from the
+requirement's `emits:` list (e.g. `emits: [PENDING, MET,
+NOT_APPLICABLE]` produces
+`status: RequirementStatus.PENDING | RequirementStatus.MET | RequirementStatus.NOT_APPLICABLE`).
+Returning a status outside the declared set is a typecheck error,
+making the spec's `emits:` declaration the enforced contract for the
+author's function. The default body the generator writes returns
+`PENDING` when it's in `emits:`, otherwise the first declared status —
+so freshly generated stubs always typecheck.
 
 ---
 
