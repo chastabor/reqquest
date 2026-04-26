@@ -57,6 +57,12 @@ export function isNumericShape (shape: PropShape | null): boolean {
   return shape === 'number'
 }
 
+/** Returns true if a leaf shape carries a string-typed value (primitive `'string'` or a `{ format: ... }` descriptor like date-time). */
+export function isStringShape (shape: PropShape | null): boolean {
+  if (shape === 'string') return true
+  return typeof shape === 'object' && shape !== null && 'format' in shape
+}
+
 function resolveToObjectShape (
   shape: PropShape,
   modelById: Map<string, ResolvedModel>

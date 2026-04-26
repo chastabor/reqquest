@@ -1,6 +1,6 @@
 import type { ResolvedSpec, ResolvedPrompt, ResolvedRequirement, ResolvedRegularModel, ResolvedModel } from '../ir/types.js'
 import type { PromptDef } from '../spec/schema.js'
-import { lookupModelField, isBooleanShape } from '../ir/fields.js'
+import { lookupModelField, isBooleanShape, isStringShape } from '../ir/fields.js'
 
 type Logger = (msg: string) => void
 type RuleBlock = NonNullable<PromptDef['validate']>
@@ -101,6 +101,19 @@ function walkRules (
       } else if (src.kind !== 'referenceData') {
         log(`${ctx}.source: "${rule.source}" must be a referenceData model`)
       }
+    }
+    if (rule.matches != null) {
+      try {
+        new RegExp(rule.matches, rule.matchesFlags ?? '')
+      } catch (e: any) {
+        log(`${ctx}.matches: invalid regex pattern: ${e.message}`)
+      }
+      if (result.found && !isStringShape(result.shape)) {
+        log(`${ctx}.matches: field "${rule.field}" must be a string-typed field on ${model.id}`)
+      }
+    }
+    if (rule.matchesFlags != null && rule.matches == null) {
+      log(`${ctx}.matchesFlags: requires "matches" to be set`)
     }
   })
 }

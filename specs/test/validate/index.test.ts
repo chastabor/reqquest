@@ -124,6 +124,110 @@ programs:
     expect(() => validateSpec(r)).toThrow(/should resolve to a boolean field/)
   })
 
+  it('flags an invalid regex pattern in matches', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, matches: "[unclosed", message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/invalid regex pattern/)
+  })
+
+  it('flags matches on a non-string field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { n: number } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: n, matches: "^\\\\d+$", message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/must be a string-typed field/)
+  })
+
+  it('flags matchesFlags without matches', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, matchesFlags: "i", message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/requires "matches" to be set/)
+  })
+
+  it('accepts a valid regex on a string field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, matches: "^[A-Z]{2}$", matchesFlags: "i", message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).not.toThrow()
+  })
+
   it('flags gatherConfig referencing a non-existent property on the source', async () => {
     const yaml = `
 specVersion: 2

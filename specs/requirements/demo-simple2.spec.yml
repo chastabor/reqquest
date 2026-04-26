@@ -21,7 +21,8 @@
 # Fell back to author-owned (true / Shape D) where the rule grammar can't
 # express the original behavior:
 #
-# - stateResidencePrompt — regex on phone/email/zip → validate: true.
+# - stateResidencePrompt — regex on phone/email/zip is now expressible
+#   via `matches:` (SPECS.md §6.5), so `validate:` is rule-driven.
 #   File-size check + MIME-type check (rule grammar handles `maxSize:`
 #   but not MIME) → preValidate: true. Shasum hashing → preProcessData: true.
 #   Legend text interpolates `{{config.residentOfState}}`, which the
@@ -170,9 +171,27 @@ prompts:
     preValidate: true
     # Hashes uploaded files into `residentIdDoc.shasum`.
     preProcessData: true
-    # Contact-field validation uses regex (phone/email/zip); the rule
-    # grammar can't express that, so author owns the logic.
-    validate: true
+    validate:
+      rules:
+        - { field: residentOfRequiredState, required: true,
+            message: "Please confirm whether you are a resident of the state." }
+        # Contact details are required only if the user said yes to residency.
+        - { field: firstName,     requiredWhen: "residentOfRequiredState", message: "First name required" }
+        - { field: lastName,      requiredWhen: "residentOfRequiredState", message: "Last name required" }
+        - { field: streetAddress, requiredWhen: "residentOfRequiredState", message: "Street address required" }
+        - { field: city,          requiredWhen: "residentOfRequiredState", message: "City required" }
+        # Phone/email are not required, but format-check what the user typed.
+        # Single-quoted YAML keeps regex backslashes literal.
+        - { field: phoneNumber,   requiredWhen: "residentOfRequiredState && phoneNumber",
+            matches: '^[0-9]{10,12}$', message: "Invalid phone number" }
+        - { field: emailAddress,  requiredWhen: "residentOfRequiredState && emailAddress",
+            matches: '^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$', message: "Invalid email address" }
+        # Zipcode is required and format-checked.
+        - { field: zipCode,       requiredWhen: "residentOfRequiredState", message: "Zipcode required" }
+        - { field: zipCode,       requiredWhen: "residentOfRequiredState",
+            matches: '^[0-9]{5}$', message: "Invalid zipcode" }
+        - { field: residentIdDoc, requiredWhen: "residentOfRequiredState",
+            message: "Identifying documentation required" }
 
   stateResidenceConfirmationPrompt:
     title: State residency confirmation

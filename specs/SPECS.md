@@ -193,6 +193,8 @@ or more `MutationMessage`s. Common keys:
 | `requiredWhen:`    | Expression (§6.5 rules below). Field is required only when truthy.      |
 | `min:` / `max:`    | Numeric bound. Value can be a literal or an expression (e.g. `"config.minExerciseHours"`). Failing values emit `message`. |
 | `maxSize:`         | Upload size limit (`"10MB"`, `1024`, …); `preValidate` only.             |
+| `matches:`         | Regex source string. Field is invalid (emits `message`) when the value is non-null and **does not** match. Pattern is compiled at generation time, so syntax errors fail the build. Field must be string-typed. |
+| `matchesFlags:`    | Optional regex flags for `matches:` (e.g. `"i"`, `"u"`, `"iu"`). Requires `matches:`. |
 | `equalsLabelOf:`   | Cross-field equality. Asserts `data.<field>` equals the matching label of `data.<equalsLabelOf>` from `source:`. Used for `value`/`label` mirrors over reference data. |
 | `source:`          | A `<ReferenceDataId>` (referenceData model id). Required when `equalsLabelOf:` is set. |
 | `messageType:`     | `error` (default) or `warning`. `warning` does not block save but blocks resolution. |

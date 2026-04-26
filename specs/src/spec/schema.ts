@@ -106,6 +106,8 @@ export const FieldValidateRule = z.object({
   min: z.union([z.number(), z.string()]).optional(),
   max: z.union([z.number(), z.string()]).optional(),
   maxSize: z.union([z.number(), z.string()]).optional(),
+  matches: z.string().optional(),                                           // regex source — fails when non-null value does not match
+  matchesFlags: z.string().optional(),                                      // optional flags for `matches` (e.g. "i", "u")
   messageType: z.enum(['error', 'warning']).optional(),
   message: z.string(),
   equalsLabelOf: z.string().optional(),                                     // cross-field equality (e.g. stateName equals label of state)

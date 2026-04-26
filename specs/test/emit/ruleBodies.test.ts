@@ -68,6 +68,36 @@ describe('emitFieldValidateBody', () => {
     ], scope)
     expect(body).toContain('stateList.find(s => s.value === data.state)?.label')
   })
+
+  it('emits regex match check from `matches`', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('whichStatePrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'state', matches: '^[A-Z]{2}$', message: 'use 2-letter code' }
+    ], scope)
+    expect(body).toContain('data.state != null && !/^[A-Z]{2}$/.test(data.state)')
+  })
+
+  it('emits regex with flags from `matchesFlags`', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('whichStatePrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'stateName', matches: 'texas', matchesFlags: 'i', message: 'must contain texas' }
+    ], scope)
+    expect(body).toContain('!/texas/i.test(data.stateName)')
+  })
+
+  it('combines matches with requiredWhen', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('whichStatePrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'stateName', requiredWhen: 'state', matches: '^[A-Z]', message: 'caps please' }
+    ], scope)
+    expect(body).toContain('(data.state) && data.stateName != null && !/^[A-Z]/.test(data.stateName)')
+  })
 })
 
 describe('emitResolveBody', () => {

@@ -43,6 +43,9 @@ function emitFieldRule (rule: FieldValidateRuleDef, scope: Scope): string {
       `${dataPath} != null`,
       `${dataPath} !== ${constName}.find(s => s.value === ${otherPath})?.label`
     ].join(' && ')
+  } else if (rule.matches != null) {
+    const re = new RegExp(rule.matches, rule.matchesFlags ?? '')
+    predicate = [...conds, `${dataPath} != null`, `!${re.toString()}.test(${dataPath})`].join(' && ')
   } else {
     predicate = [...conds, `${dataPath} == null`].join(' && ')
   }
