@@ -82,6 +82,46 @@ describe('validateExpression — requirement scope', () => {
     validateExpression('whichStatePrompt', { kind: 'requirement', requirement: req }, { modelById: r.modelById, ctx: 't', log })
     expect(issues[0]).toMatch(/used bare/)
   })
+
+  it('accepts allConfig.<reqId>.<field> when both resolve', async () => {
+    const r = await loadIR()
+    const req = r.requirementById.get('whichStateReq')!
+    const { issues, log } = logger()
+    validateExpression('allConfig.mustExerciseYourDogReq.minExerciseHours',
+      { kind: 'requirement', requirement: req },
+      { modelById: r.modelById, requirementById: r.requirementById, ctx: 't', log })
+    expect(issues).toEqual([])
+  })
+
+  it('rejects allConfig with an unknown requirement id', async () => {
+    const r = await loadIR()
+    const req = r.requirementById.get('whichStateReq')!
+    const { issues, log } = logger()
+    validateExpression('allConfig.notARequirement.x',
+      { kind: 'requirement', requirement: req },
+      { modelById: r.modelById, requirementById: r.requirementById, ctx: 't', log })
+    expect(issues[0]).toMatch(/unknown requirement id/)
+  })
+
+  it('rejects allConfig field path that does not exist on the target requirement config', async () => {
+    const r = await loadIR()
+    const req = r.requirementById.get('whichStateReq')!
+    const { issues, log } = logger()
+    validateExpression('allConfig.mustExerciseYourDogReq.bogus',
+      { kind: 'requirement', requirement: req },
+      { modelById: r.modelById, requirementById: r.requirementById, ctx: 't', log })
+    expect(issues[0]).toMatch(/unknown field "bogus"/)
+  })
+
+  it('rejects allConfig.X with no field segment', async () => {
+    const r = await loadIR()
+    const req = r.requirementById.get('whichStateReq')!
+    const { issues, log } = logger()
+    validateExpression('allConfig.mustExerciseYourDogReq',
+      { kind: 'requirement', requirement: req },
+      { modelById: r.modelById, requirementById: r.requirementById, ctx: 't', log })
+    expect(issues[0]).toMatch(/<requirementId>\.<field>/)
+  })
 })
 
 describe('validateExpression — extract scope', () => {

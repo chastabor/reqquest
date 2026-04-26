@@ -4,12 +4,14 @@ import type { ResolvedModel, ResolvedPrompt, ResolvedRequirement } from '../ir/t
 import { lookupModelField } from '../ir/fields.js'
 import { extractInterpolations } from './interpolate.js'
 
-// Built-in identifiers that look like names but aren't model fields. `data`
-// and `config` are handled specially in validateIdent.
+// Built-in identifiers that look like names but aren't model fields. `data`,
+// `config`, and `allConfig` are handled specially in validateIdent.
 const VERBATIM_HEADS = new Set(['undefined', 'NaN', 'Infinity'])
 
 export interface ValidateExprOpts {
   modelById: Map<string, ResolvedModel>
+  /** Required for validating `allConfig.<reqId>.<field>` chains in resolve expressions. */
+  requirementById?: Map<string, ResolvedRequirement>
   /** Prefix prepended to every issue, e.g. `requirements.foo.resolve.rules[2].when`. */
   ctx: string
   /** Issue sink. */
@@ -40,6 +42,10 @@ function validateIdent (ident: IdentRoot, scope: Scope, opts: ValidateExprOpts):
   if (root === 'data') return                                                // escape hatch — accepted verbatim
   if (root === 'config') {
     validateConfig(chain, scope, opts)
+    return
+  }
+  if (root === 'allConfig') {
+    validateAllConfig(chain, scope, opts)
     return
   }
   switch (scope.kind) {
@@ -78,6 +84,30 @@ function validateConfig (chain: string[], scope: Scope, opts: ValidateExprOpts):
   }
   // extract scope — config.X is meaningless here, would be an authoring error.
   opts.log(`${opts.ctx}: config.${prop} is not valid in tag/index extract expressions`)
+}
+
+function validateAllConfig (chain: string[], scope: Scope, opts: ValidateExprOpts): void {
+  if (scope.kind !== 'requirement') {
+    opts.log(`${opts.ctx}: allConfig.* is only valid in requirement resolve expressions`)
+    return
+  }
+  if (chain.length < 2) {
+    opts.log(`${opts.ctx}: allConfig must be followed by <requirementId>.<field>`)
+    return
+  }
+  const reqId = chain[0]!
+  const rest = chain.slice(1)
+  if (!opts.requirementById) return                                           // caller didn't supply spec context — skip lookup
+  const target = opts.requirementById.get(reqId)
+  if (!target) {
+    opts.log(`${opts.ctx}: allConfig.${reqId}: unknown requirement id`)
+    return
+  }
+  if (!target.configurationModel) {
+    opts.log(`${opts.ctx}: allConfig.${reqId}: requirement has no configuration block`)
+    return
+  }
+  validateOnRegularModel(rest.join('.'), target.configurationModel, opts)
 }
 
 function validateRequirementRoot (root: string, chain: string[], scope: { requirement: ResolvedRequirement }, opts: ValidateExprOpts): void {

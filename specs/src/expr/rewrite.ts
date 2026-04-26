@@ -1,6 +1,7 @@
 import { parseExpression, walkIdents, type IdentRoot } from './parse.js'
 import type { Scope } from './scope.js'
 import { extractInterpolations, type Interpolation } from './interpolate.js'
+import { toSnakeCase } from '../ir/derive.js'
 
 const TS_PASSTHROUGH = new Set(['data', 'config', 'undefined', 'NaN', 'Infinity'])
 const SVELTE_PASSTHROUGH = new Set(['data', 'undefined', 'NaN', 'Infinity'])
@@ -92,6 +93,12 @@ function rewriteIdent (ident: IdentRoot, scope: Scope, target: 'ts' | 'svelte'):
     // emitting it anyway gives a clear `gatheredConfigData is not defined`
     // at compile time, which is preferable to silent passthrough.
     return chain.length === 0 ? 'gatheredConfigData' : `gatheredConfigData.${chain.join('.')}`
+  }
+  if (root === 'allConfig') {
+    // Cross-requirement config lookup. The runtime parameter is named
+    // `configLookup` and keys by snake_case requirement id.
+    if (chain.length < 2) return null                                       // validator already flagged; leave the source verbatim
+    return ['configLookup', toSnakeCase(chain[0]!), ...chain.slice(1)].join('.')
   }
   switch (scope.kind) {
     case 'prompt':

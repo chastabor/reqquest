@@ -28,8 +28,6 @@
 #   Legend text interpolates `{{config.residentOfState}}`, which the
 #   generator now rewrites to `gatheredConfigData.residentOfState` in
 #   Svelte (SPECS.md §6.5).
-# - stateResidenceConfirmationReq.resolve — message reads allConfig.state_residence_req.residentOfState
-#   (cross-requirement config); rule grammar's config.<name> is own-config only → resolve: true.
 # - idTypeReq.resolve — three-prompt branching with optional SSN top-up → resolve: true.
 # =============================================================================
 
@@ -426,10 +424,14 @@ requirements:
     description: Reviewer must validate ID provided and confirm as resident of state.
     prompts: [stateResidenceConfirmationPrompt]
     emits: [PENDING, MET, DISQUALIFYING]
-    # Resolve message reads the OTHER requirement's per-period config
-    # (`state_residence_req.residentOfState`); rule grammar only exposes
-    # this requirement's own `config.<name>`, so author owns it.
-    resolve: true
+    resolve:
+      rules:
+        - { when: "stateResidenceConfirmationPrompt.residentOfRequiredState == null ||
+                   stateResidenceConfirmationPrompt.residenceIsHome == null", status: PENDING }
+        - { when: "stateResidenceConfirmationPrompt.residentOfRequiredState &&
+                   stateResidenceConfirmationPrompt.residenceIsHome",          status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "Applicant does not reside in a home in {{allConfig.stateResidenceReq.residentOfState}}." }
 
   # ---- step ----
   step1PostResidenceReq:

@@ -56,6 +56,14 @@ describe('rewriteExpression — requirement scope', () => {
     expect(rewriteExpression('vaccineReviewPrompt.distemper.satisfactory', scope))
       .toBe('data.vaccine_review_prompt?.distemper.satisfactory')
   })
+
+  it('rewrites allConfig.<reqId>.<field> to configLookup.<snake>.<field>', async () => {
+    const r = await loadIR()
+    const req = r.requirementById.get('whichStateReq')!
+    const scope: RequirementScope = { kind: 'requirement', requirement: req }
+    expect(rewriteExpression('allConfig.mustExerciseYourDogReq.minExerciseHours', scope))
+      .toBe('configLookup.must_exercise_your_dog_req.minExerciseHours')
+  })
 })
 
 describe('rewriteExpression — extract scope', () => {

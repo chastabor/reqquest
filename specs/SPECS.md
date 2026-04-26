@@ -248,6 +248,12 @@ identifier resolution rules are:
   nested object models.
 - `config.<name>` resolves against the requirement's
   `configuration.model`. Generator validates `<name>` exists.
+- `allConfig.<requirementId>.<field>` reads another requirement's
+  per-period configuration. Emits
+  `configLookup.<snake_requirement_id>.<field>` (the framework passes
+  the same `configLookup` dict to every requirement's `resolve`).
+  Generator validates that the requirement exists, has a `configuration`
+  block, and the field resolves on its `configuration.model`.
 - A bare identifier that is **not** a prompt id in scope is a
   generation-time error.
 

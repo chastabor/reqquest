@@ -13,7 +13,7 @@ export function validateExpressions (spec: ResolvedSpec, log: Logger): void {
 
 function walkPrompt (prompt: ResolvedPrompt, spec: ResolvedSpec, log: Logger): void {
   const scope: PromptScope = { kind: 'prompt', prompt }
-  const base = { modelById: spec.modelById, log }
+  const base = { modelById: spec.modelById, requirementById: spec.requirementById, log }
   const ctxPrefix = `prompts.${prompt.id}`
 
   walkValidateBlock(prompt.raw.validate, scope, `${ctxPrefix}.validate`, base)
@@ -39,7 +39,7 @@ function walkPrompt (prompt: ResolvedPrompt, spec: ResolvedSpec, log: Logger): v
 
 function walkRequirement (req: ResolvedRequirement, spec: ResolvedSpec, log: Logger): void {
   const scope: RequirementScope = { kind: 'requirement', requirement: req }
-  const base = { modelById: spec.modelById, log }
+  const base = { modelById: spec.modelById, requirementById: spec.requirementById, log }
   const ctxPrefix = `requirements.${req.id}`
 
   if (typeof req.raw.resolve === 'object') {
