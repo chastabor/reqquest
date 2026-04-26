@@ -2,7 +2,7 @@ import type {
   ResolvedSpec, ResolvedRequirement, ResolvedPrompt
 } from '../ir/types.js'
 import { requirementFilePath, indexBarrelFilePath } from '../ir/derive.js'
-import { quoteString, printValue } from '../codegen/ts.js'
+import { lowerFirstChar, quoteString, printValue } from '../codegen/ts.js'
 import { formatTS } from '../codegen/format.js'
 import { ImportCollector, modelsImportPath } from '../codegen/imports.js'
 import type { OutputBundle } from './files.js'
@@ -107,7 +107,12 @@ function printConfiguration (req: ResolvedRequirement, ctx: FileCtx): string {
     fields.push(`validate: ${importLogicStub(ctx.imports, req, 'configurationValidate')}`)
   }
 
-  if (cfg.fetch === true) {
+  if (typeof cfg.fetch === 'string' && req.configurationFetchModel) {
+    const ref = req.configurationFetchModel
+    const constName = lowerFirstChar(ref.id)
+    ctx.imports.add(modelsImportPath(ref.group), constName)
+    fields.push(`fetch: async () => ({ ${constName} })`)
+  } else if (cfg.fetch === true) {
     fields.push(`fetch: ${importLogicStub(ctx.imports, req, 'configurationFetch')}`)
   }
   if (cfg.preProcessData === true) {

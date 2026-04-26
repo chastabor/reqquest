@@ -1,12 +1,16 @@
 import type { ResolvedSpec } from '../../ir/types.js'
 import type { PromptScope, ConfigScope } from '../../expr/scope.js'
 import { quoteString } from '../../codegen/ts.js'
-import { printSvelteAttrs, rewriteSvelteText } from '../../codegen/svelte.js'
+import { printSvelteAttrs, rewriteSvelteText, type SvelteRefDataCtx } from '../../codegen/svelte.js'
 import { rewriteExpression } from '../../expr/rewrite.js'
 import type { TemplateRegistry } from './templates.js'
 
 const SLOT_DISCRIMINATORS = ['component', 'fields', 'template', 'text', 'cases'] as const
 const SVELTE_REWRITE = { target: 'svelte' as const }
+
+function refDataCtx (ctx: SlotContext): SvelteRefDataCtx {
+  return { modelById: ctx.spec.modelById, fetchedRefDataIds: ctx.fetchedRefDataIds }
+}
 
 // Inputs are the unparsed `ui.<slot>` shape from the spec — the zod
 // schema validates which keys are present. The dispatcher here picks
@@ -20,6 +24,8 @@ export interface SlotContext {
   hasFetch: boolean
   /** Whether the prompt that owns this slot has `gatherConfig:`. Drives the `gatheredConfigData` declaration. */
   hasGatherConfig: boolean
+  /** referenceData ids in the slot's `fetched` prop at runtime — used to resolve `{ from: <RefDataId> }` shorthand. */
+  fetchedRefDataIds: Set<string>
   spec: ResolvedSpec
   templates: TemplateRegistry
   /** Spec path label, e.g. `prompts.haveYardPrompt.ui.form` — surfaced in errors. */
@@ -55,11 +61,12 @@ export async function emitSlot (slot: SlotShape, ctx: SlotContext): Promise<Slot
 async function shapeA (slot: SlotShape, ctx: SlotContext): Promise<string> {
   const carbonComponents = new Set<string>()
   const templateImports: Array<{ name: string, path: string }> = []
+  const refData = refDataCtx(ctx)
 
   const fieldLines = (slot.fields as Array<Record<string, Record<string, unknown>>>).map(entry => {
     const [componentName, props] = Object.entries(entry)[0]!
     carbonComponents.add(componentName)
-    return `<${componentName} ${printSvelteAttrs(props, ctx.scope)} />`
+    return `<${componentName} ${printSvelteAttrs(props, ctx.scope, refData)} />`
   })
 
   let body: string
@@ -68,11 +75,11 @@ async function shapeA (slot: SlotShape, ctx: SlotContext): Promise<string> {
     if (wrap.template) {
       const path = await ctx.templates.ensure(wrap.template)
       templateImports.push({ name: wrap.template, path })
-      body = `<${wrap.template} ${printSvelteAttrs(wrap.props, ctx.scope)}>\n  ${fieldLines.join('\n  ')}\n</${wrap.template}>`
+      body = `<${wrap.template} ${printSvelteAttrs(wrap.props, ctx.scope, refData)}>\n  ${fieldLines.join('\n  ')}\n</${wrap.template}>`
     } else if (wrap.component) {
       // Project-local hand-written wrapper — assume already exists in this group dir.
       templateImports.push({ name: wrap.component, path: `./${wrap.component}.svelte` })
-      body = `<${wrap.component} ${printSvelteAttrs(wrap.props, ctx.scope)}>\n  ${fieldLines.join('\n  ')}\n</${wrap.component}>`
+      body = `<${wrap.component} ${printSvelteAttrs(wrap.props, ctx.scope, refData)}>\n  ${fieldLines.join('\n  ')}\n</${wrap.component}>`
     } else {
       body = fieldLines.join('\n')
     }
@@ -91,11 +98,8 @@ async function shapeB (slot: SlotShape, ctx: SlotContext): Promise<string> {
   const path = await ctx.templates.ensure(slot.template)
   const props = slot.props as Record<string, unknown> | undefined
   const dataPart = ctx.hasFetch ? '{data} {fetched}' : '{data}'
-  const body = `<${slot.template} ${dataPart} ${printSvelteAttrs(props, ctx.scope)} />`
-  return assembleSvelte(ctx, {
-    templateImports: [{ name: slot.template, path }],
-    body
-  })
+  const body = `<${slot.template} ${dataPart} ${printSvelteAttrs(props, ctx.scope, refDataCtx(ctx))} />`
+  return assembleSvelte(ctx, { templateImports: [{ name: slot.template, path }], body })
 }
 
 // =============================================================================
@@ -109,13 +113,14 @@ async function shapeC (slot: SlotShape, ctx: SlotContext): Promise<string> {
 
   const branches = slot.cases as Array<Record<string, any>>
   const templateImports = await ensureCaseTemplates(branches, ctx)
+  const refData = refDataCtx(ctx)
 
   const lines: string[] = []
   branches.forEach((branch, i) => {
     const intro = i === 0
       ? `{#if ${rewriteExpression(branch.when, ctx.scope, SVELTE_REWRITE)}}`
       : branch.else === true ? '{:else}' : `{:else if ${rewriteExpression(branch.when, ctx.scope, SVELTE_REWRITE)}}`
-    lines.push(intro + renderBranchContent(branch, ctx))
+    lines.push(intro + renderBranchContent(branch, ctx, refData))
   })
   lines.push('{/if}')
 
@@ -137,11 +142,11 @@ async function ensureCaseTemplates (
   return Promise.all(ordered.map(async name => ({ name, path: await ctx.templates.ensure(name) })))
 }
 
-function renderBranchContent (branch: Record<string, any>, ctx: SlotContext): string {
+function renderBranchContent (branch: Record<string, any>, ctx: SlotContext, refData: SvelteRefDataCtx): string {
   if ('text' in branch) return rewriteSvelteText(branch.text, ctx.scope)
   if ('template' in branch) {
     const dataPart = ctx.hasFetch ? '{data} {fetched}' : '{data}'
-    return `<${branch.template} ${dataPart} ${printSvelteAttrs(branch.props as Record<string, unknown> | undefined, ctx.scope)} />`
+    return `<${branch.template} ${dataPart} ${printSvelteAttrs(branch.props as Record<string, unknown> | undefined, ctx.scope, refData)} />`
   }
   return ''
 }

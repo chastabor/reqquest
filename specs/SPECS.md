@@ -142,7 +142,7 @@ Each hook field on a prompt, requirement, or configuration accepts one of:
 | `true`                             | Author provides a named function. Generator emits a typed stub in `<group>.logic.ts` and imports it. |
 | `false`                            | Hook is intentionally a no-op; generator omits it (or emits an empty function where required). |
 | `dynamic`                          | Same as `true` but signals "function form of an otherwise declarative field" (used for `invalidates` / `revalidates`). |
-| `<ReferenceDataId>`                | `fetch` only: emit `async () => ({ <constName> })` — the prompt's `fetched` receives the inlined reference-data array under its lowercased const name (e.g. `stateList`). |
+| `<ReferenceDataId>`                | `fetch` and `configuration.fetch` only: emit `async () => ({ <constName> })` — the slot's `fetched` receives the inlined reference-data array under its lowercased const name (e.g. `stateList`). |
 | `[promptId, ...]`                  | `invalidates` / `revalidates` static list form. Emits `invalidUponChange: [{ promptKey: ... }, ...]`. |
 | `{ whenAnyFalse / whenAllTrue: [paths], targets: [...] }` | `invalidates` / `revalidates` declarative form. Generator synthesizes the function body that fires `targets` when any/all of the boolean `paths` (within the prompt's own data) match. Each `targets:` entry is either a bare prompt id or `{ promptId, reason }`. |
 | `{ from: id, fields: [...] }`-map  | `gatherConfig` declarative form. Emits the appropriate pluck function body.                  |
@@ -290,6 +290,8 @@ used.
 | `prompts.x.preload.copyFrom`        | a `prompts.<id>` id                              |
 | `prompts.x.fetch`                   | a `models.<PascalCase>` id with `kind: referenceData` |
 | `prompts.x.configuration.model`    | a `models.<PascalCase>` id                       |
+| `requirements.x.configuration.fetch` (string form) | a `models.<PascalCase>` id with `kind: referenceData` |
+| Shape A / B prop value `{ from: <Id> }` | a `models.<PascalCase>` id with `kind: referenceData` that the slot's owner fetches via `fetch:` or `configuration.fetch:` |
 | `requirements.x.prompts` entries    | a `prompts.<id>` id                              |
 | `requirements.x.hidden` entries     | a `prompts.<id>` id                              |
 | `requirements.x.anyOrder` entries   | a `prompts.<id>` id                              |
@@ -355,6 +357,13 @@ component verbatim, with two derived behaviors:
 - `conditional:` (and any other expression-shaped prop) follows the §6.5
   expression rules — bare identifiers resolve to fields on the prompt's
   own data, and the generator emits `data.<field>`.
+- A prop value of the shape `{ from: <ReferenceDataId> }` (e.g.
+  `items: { from: StateList }`) resolves to `fetched.<constName>` — the
+  inlined reference-data array delivered through the slot's `fetched`
+  prop. Requires the slot's owner to declare `fetch: <RefDataId>` (on a
+  prompt) or `configuration.fetch: <RefDataId>` (on a requirement) so
+  `fetched.<constName>` is populated. Generation-time error if the id
+  is not a referenceData or is not in scope.
 
 Optional `wrap:` puts the field list inside an outer Svelte component
 that exposes a default `<slot/>`:

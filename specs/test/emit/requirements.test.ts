@@ -89,6 +89,38 @@ describe('emitRequirements — demo-default2', () => {
     expect(dog).toMatch(/reason: `[^`]*\$\{config\.minExerciseHours\}[^`]*`/)
   })
 
+  it('emits configuration.fetch as a refdata-returning async fn when given a referenceData id', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  RefList: { group: g, kind: referenceData, shape: { value: string, label: string }, values: [{ value: a, label: A }] }
+  C: { group: g, required: [chosen], properties: { chosen: { enum: RefList } } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration:
+      model: C
+      default: { chosen: a }
+      fetch: RefList
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const spec = parseSpecFromString(yaml)
+    const ir = await resolveSpec(spec, { repoRoot: REPO_ROOT, specPath: '<inline>' })
+    const bundle = new OutputBundle()
+    await emitRequirements(ir, bundle)
+    const file = bundle.get('demos/src/t/definitions/requirements/g.requirements.ts')!
+    expect(file).toMatch(/import \{[^}]*refList[^}]*\} from '\.\.\/models\/g\.models\.js'/)
+    expect(file).toMatch(/fetch: async \(\) => \(\{ refList \}\)/)
+  })
+
   it('emits hidden / anyOrder prompt key arrays when present', async () => {
     const yaml = `
 specVersion: 2

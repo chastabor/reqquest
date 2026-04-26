@@ -87,6 +87,8 @@ export interface ResolvedRequirement {
   hidden: ResolvedPrompt[]
   anyOrder: ResolvedPrompt[]
   configurationModel: ResolvedModel | null
+  /** Resolved model when `configuration.fetch:` is a referenceData id. */
+  configurationFetchModel: ResolvedReferenceDataModel | null
   /** Status set this requirement may emit. Derived from rules when present, else taken from raw.emits. */
   emits: Status[]
 }

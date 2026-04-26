@@ -96,6 +96,9 @@ export async function resolveSpec (spec: Spec, opts: ResolveOpts): Promise<Resol
     const configurationModel = raw.configuration
       ? lookupOne(`requirements.${id}.configuration.model`, raw.configuration.model, modelById, 'model', log)
       : null
+    const configurationFetchModel = raw.configuration
+      ? resolveFetchRefData(`requirements.${id}.configuration.fetch`, raw.configuration.fetch, modelById, log)
+      : null
     const emits = deriveEmits(`requirements.${id}`, raw, log)
     const req: ResolvedRequirement = {
       id,
@@ -108,6 +111,7 @@ export async function resolveSpec (spec: Spec, opts: ResolveOpts): Promise<Resol
       hidden: hiddenRefs,
       anyOrder: anyOrderRefs,
       configurationModel,
+      configurationFetchModel,
       emits
     }
     requirements.push(req)
@@ -157,16 +161,7 @@ export async function resolveSpec (spec: Spec, opts: ResolveOpts): Promise<Resol
   for (const prompt of prompts) {
     const r: PromptDef = prompt.raw
 
-    if (typeof r.fetch === 'string') {
-      const m = modelById.get(r.fetch)
-      if (!m) {
-        log(`prompts.${prompt.id}.fetch: unknown model "${r.fetch}"`)
-      } else if (m.kind !== 'referenceData') {
-        log(`prompts.${prompt.id}.fetch: "${r.fetch}" must be a referenceData model`)
-      } else {
-        prompt.fetchModel = m
-      }
-    }
+    prompt.fetchModel = resolveFetchRefData(`prompts.${prompt.id}.fetch`, r.fetch, modelById, log)
 
     if (r.preload && typeof r.preload === 'object' && 'copyFrom' in r.preload) {
       const target = promptById.get(r.preload.copyFrom)
@@ -241,6 +236,31 @@ export async function resolveSpec (spec: Spec, opts: ResolveOpts): Promise<Resol
 // =============================================================================
 // Internals
 // =============================================================================
+
+/**
+ * Shared resolver for `fetch:` and `configuration.fetch:` shorthand. The
+ * string form must point at a `kind: referenceData` model; anything else
+ * is an error. Non-string values (true / false / undefined) skip
+ * resolution and return null.
+ */
+function resolveFetchRefData (
+  ctx: string,
+  value: unknown,
+  modelById: Map<string, ResolvedModel>,
+  log: (msg: string) => void
+): ResolvedReferenceDataModel | null {
+  if (typeof value !== 'string') return null
+  const m = modelById.get(value)
+  if (!m) {
+    log(`${ctx}: unknown model "${value}"`)
+    return null
+  }
+  if (m.kind !== 'referenceData') {
+    log(`${ctx}: "${value}" must be a referenceData model`)
+    return null
+  }
+  return m
+}
 
 async function buildModel (
   id: string,

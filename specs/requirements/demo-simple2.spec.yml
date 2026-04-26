@@ -33,8 +33,6 @@
 # - stateResidenceConfirmationReq.resolve — message reads allConfig.state_residence_req.residentOfState
 #   (cross-requirement config); rule grammar's config.<name> is own-config only → resolve: true.
 # - idTypeReq.resolve — three-prompt branching with optional SSN top-up → resolve: true.
-# - stateResidenceReq.configuration.ui.configure — needs a state-name dropdown driven by StateList,
-#   but Shape A has no access to fetched in configure scope → component:.
 # =============================================================================
 
 specVersion: 2
@@ -376,16 +374,22 @@ requirements:
     configuration:
       model: StateResidenceConfig
       default: { residentOfState: Texas }
+      # `configuration.fetch: <RefDataId>` mirrors prompt-level `fetch:` —
+      # the configure UI receives `fetched.stateList` and Shape A field
+      # shorthand can pull from it via `items: { from: StateList }`.
+      fetch: StateList
       validate:
         rules:
           - { field: residentOfState, required: true,
               message: "Please specify the state to which an applicant must reside." }
       ui:
-        # The configure form is a state-name dropdown driven by
-        # `StateList`. Shape A field shorthand can't pull items from a
-        # referenceData (no `fetched` in configure scope), so keep it as
-        # an escape-hatch component the author owns.
-        configure: { component: StateResidenceConfigure }
+        configure:
+          fields:
+            - FieldSelect:
+                path: residentOfState
+                labelText: State
+                required: true
+                items: { from: StateList }
 
   stateResidenceConfirmationReq:
     phase: APPROVAL

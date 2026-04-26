@@ -129,6 +129,7 @@ export type ResolveRuleDef = z.infer<typeof ResolveRule>
 
 const ValidateBlock = z.union([HookFlag, z.object({ rules: z.array(FieldValidateRule) }).strict()])
 const ResolveBlock = z.union([HookFlag, z.object({ rules: z.array(ResolveRule) }).strict()])
+const FetchBlock = z.union([HookFlag, z.string()])                          // string = referenceData id (mirrors prompts.x.fetch)
 
 // =============================================================================
 // UI binding (SPECS.md §8) — Shapes A/B/C/D
@@ -226,7 +227,7 @@ const TagDef = z.object({
 const ConfigDef = z.object({
   model: z.string(),
   default: z.unknown().optional(),
-  fetch: HookFlag.optional(),
+  fetch: FetchBlock.optional(),                                              // string = referenceData id (mirrors prompts.x.fetch)
   preProcessData: HookFlag.optional(),
   validate: ValidateBlock.optional(),
   ui: z.object({ configure: ConfigureSlot.optional() }).strict().optional()
@@ -269,8 +270,6 @@ const PreloadBlock = z.union([
   HookFlag,
   z.object({ copyFrom: z.string(), fields: z.array(z.string()).optional() }).strict()
 ])
-
-const FetchBlock = z.union([HookFlag, z.string()])                          // string = referenceData id
 
 export const PromptDef = z.object({
   group: z.string().optional(),

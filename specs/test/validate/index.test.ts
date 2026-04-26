@@ -371,4 +371,123 @@ programs:
     const r = await ir(yaml)
     expect(() => validateSpec(r)).not.toThrow()
   })
+
+  it('accepts { from: <RefDataId> } when the requirement configuration fetches it', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  RefList: { group: g, kind: referenceData, shape: { value: string, label: string }, values: [{ value: a, label: A }] }
+  C: { group: g, required: [chosen], properties: { chosen: { enum: RefList } } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration:
+      model: C
+      default: { chosen: a }
+      fetch: RefList
+      ui:
+        configure:
+          fields:
+            - FieldSelect: { path: chosen, labelText: Chosen, items: { from: RefList } }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).not.toThrow()
+  })
+
+  it('flags { from: X } when X is not a referenceData', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  C: { group: g, required: [chosen], properties: { chosen: string } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration:
+      model: C
+      default: { chosen: a }
+      ui:
+        configure:
+          fields:
+            - FieldSelect: { path: chosen, labelText: Chosen, items: { from: M } }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/not a referenceData/)
+  })
+
+  it('flags { from: X } when the slot does not fetch X', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  RefList: { group: g, kind: referenceData, shape: { value: string, label: string }, values: [{ value: a, label: A }] }
+  C: { group: g, required: [chosen], properties: { chosen: { enum: RefList } } }
+prompts:
+  p: { title: P, model: M }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration:
+      model: C
+      default: { chosen: a }
+      ui:
+        configure:
+          fields:
+            - FieldSelect: { path: chosen, labelText: Chosen, items: { from: RefList } }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/not in scope/)
+  })
+
+  it('flags { from: X } when X is an unknown model id', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  RefList: { group: g, kind: referenceData, shape: { value: string, label: string }, values: [{ value: a, label: A }] }
+prompts:
+  p:
+    title: P
+    model: M
+    fetch: RefList
+    ui:
+      form:
+        fields:
+          - FieldSelect: { path: x, items: { from: Ghost } }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown model/)
+  })
 })

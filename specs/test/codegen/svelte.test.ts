@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { parseSpec } from '../../src/spec/parse.js'
 import { resolveSpec } from '../../src/ir/resolve.js'
-import { printSvelteAttr, printSvelteAttrs, rewriteSvelteText } from '../../src/codegen/svelte.js'
+import { printSvelteAttr, printSvelteAttrs, rewriteSvelteText, type SvelteRefDataCtx } from '../../src/codegen/svelte.js'
 import type { PromptScope } from '../../src/expr/scope.js'
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), '../../../..')
@@ -83,6 +83,46 @@ describe('printSvelteAttr', () => {
     const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('mustExerciseYourDogPrompt')! }
     expect(printSvelteAttr('items', [{ label: 'min: {{config.minExerciseHours}}', value: 1 }], scope))
       .toBe('items={[{ label: `min: ${gatheredConfigData.minExerciseHours}`, value: 1 }]}')
+  })
+
+  it('emits { from: <RefDataId> } as fetched.<constName> when refData passed', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('whichStatePrompt')! }
+    const refData: SvelteRefDataCtx = {
+      modelById: r.modelById,
+      fetchedRefDataIds: new Set(['StateList'])
+    }
+    expect(printSvelteAttr('items', { from: 'StateList' }, scope, refData))
+      .toBe('items={fetched.stateList}')
+  })
+
+  it('throws when { from: X } references a non-fetched refdata', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('whichStatePrompt')! }
+    const refData: SvelteRefDataCtx = {
+      modelById: r.modelById,
+      fetchedRefDataIds: new Set()                                            // nothing fetched
+    }
+    expect(() => printSvelteAttr('items', { from: 'StateList' }, scope, refData))
+      .toThrow(/not in scope/)
+  })
+
+  it('throws when { from: X } references a non-referenceData model', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('whichStatePrompt')! }
+    const refData: SvelteRefDataCtx = {
+      modelById: r.modelById,
+      fetchedRefDataIds: new Set(['HaveYardPrompt'])
+    }
+    expect(() => printSvelteAttr('items', { from: 'HaveYardPrompt' }, scope, refData))
+      .toThrow(/not a referenceData/)
+  })
+
+  it('falls back to plain object literal when refData is absent', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('whichStatePrompt')! }
+    expect(printSvelteAttr('items', { from: 'StateList' }, scope))
+      .toBe('items={{ from: "StateList" }}')
   })
 })
 

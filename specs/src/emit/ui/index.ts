@@ -8,6 +8,11 @@ import { TemplateRegistry } from './templates.js'
 import { emitSlot, type SlotContext } from './shapes.js'
 import { emitRegistry, type RegistryCollector } from './registry.js'
 
+/** A `configuration.fetch:` value populates `fetched` unless explicitly disabled with `false`. */
+function hasConfigFetch (cfg: unknown): boolean {
+  return cfg != null && cfg !== false
+}
+
 export async function emitUI (spec: ResolvedSpec, bundle: OutputBundle, opts: EmitOpts): Promise<void> {
   const templates = new TemplateRegistry(spec.project.id, bundle, opts.repoRoot)
   const collector: RegistryCollector = { prompts: [], requirements: [], programs: [] }
@@ -45,7 +50,9 @@ async function processPrompt (
   const promptScope: PromptScope = { kind: 'prompt', prompt }
   const hasFetch = prompt.raw.fetch != null
   const hasGatherConfig = prompt.gatherConfigSources.length > 0
-  const baseCtx = { hasFetch, hasGatherConfig, spec, templates }
+  const fetchedRefDataIds = new Set<string>()
+  if (prompt.fetchModel) fetchedRefDataIds.add(prompt.fetchModel.id)
+  const baseCtx = { hasFetch, hasGatherConfig, fetchedRefDataIds, spec, templates }
   const namePrefix = upperFirstChar(prompt.id)
   const labelPrefix = `prompts.${prompt.id}.ui`
 
@@ -68,13 +75,15 @@ async function processPrompt (
     if (cfg && cfg.kind === 'regular') {
       const name = `${namePrefix}Configure`
       const configScope: ConfigScope = { kind: 'config', model: cfg }
-      // Configure slots are admin-side; the framework does not pass
-      // `gatheredConfigData` or `fetched` to them.
+      // Configure slots are admin-side: the framework does not pass
+      // `gatheredConfigData`, and refdata-shorthand for `configuration.fetch:`
+      // is supported on requirement configurations only.
       const result = await emitSlot(ui.configure, {
         ...baseCtx,
         scope: configScope,
-        hasFetch: false,
+        hasFetch: hasConfigFetch(prompt.raw.configuration?.fetch),
         hasGatherConfig: false,
+        fetchedRefDataIds: new Set(),
         label: `${labelPrefix}.configure`
       })
       write(bundle, uiComponentPath(spec.project.id, prompt.group, name), result)
@@ -103,7 +112,17 @@ async function processRequirement (
     const name = `${upperFirstChar(req.id)}Configure`
     const configScope: ConfigScope = { kind: 'config', model: req.configurationModel }
     const label = `requirements.${req.id}.${req.raw.ui?.configure ? 'ui' : 'configuration.ui'}.configure`
-    const result = await emitSlot(slot, { hasFetch: false, hasGatherConfig: false, scope: configScope, spec, templates, label })
+    const fetchedRefDataIds = new Set<string>()
+    if (req.configurationFetchModel) fetchedRefDataIds.add(req.configurationFetchModel.id)
+    const result = await emitSlot(slot, {
+      hasFetch: hasConfigFetch(req.raw.configuration?.fetch),
+      hasGatherConfig: false,
+      fetchedRefDataIds,
+      scope: configScope,
+      spec,
+      templates,
+      label
+    })
     write(bundle, uiComponentPath(spec.project.id, req.group, name), result)
     binding.configureComponent = { name, importPath: uiComponentImport(req.group, name) }
   }
