@@ -2,7 +2,7 @@
 # ReqQuest Specification — demo "default2"
 # =============================================================================
 # Re-implementation of `demos/src/default/` using the spec format documented
-# in CLAUDE.md, with three new vocabularies layered on top:
+# in SPECS.md, with three new vocabularies layered on top:
 #
 #   A. Field shorthand           — list carbon-svelte primitives directly in
 #      `ui.form.fields:`. The generator emits the corresponding Svelte file
@@ -170,7 +170,7 @@ prompts:
           listKey: stateList
       display:
         # A: text shorthand — bare identifiers resolve to the prompt's
-        # own model fields (CLAUDE.md §6.5).
+        # own model fields (SPECS.md §6.5).
         text: "{{ stateName ?? state }}"
     validate:
       # C: declarative rules.
@@ -481,7 +481,7 @@ requirements:
     description: Applicants must tell us which state they live in.
     prompts: [whichStatePrompt]
     resolve:
-      # `emits:` is derived from these rules (CLAUDE.md §6.5).
+      # `emits:` is derived from these rules (SPECS.md §6.5).
       # Top-level identifiers resolve to prompts in `prompts:` above.
       rules:
         - { when: "whichStatePrompt.state == null", status: PENDING }

@@ -27,7 +27,7 @@ const PhaseName = z.enum([
 ])
 
 // =============================================================================
-// Schema property shorthand (CLAUDE.md §5)
+// Schema property shorthand (SPECS.md §5)
 //
 // Accepts: 'string' | 'number' | 'boolean'
 //        | <ModelId>  (PascalCase reference)
@@ -62,7 +62,7 @@ const PropShape: z.ZodType<PropShape> = z.lazy(() =>
 )
 
 // =============================================================================
-// Models (CLAUDE.md §5)
+// Models (SPECS.md §5)
 // =============================================================================
 
 const ReferenceDataShape = z.union([
@@ -96,7 +96,7 @@ export const ModelDef = z.union([RegularModel, ReferenceDataModel])
 export type ModelDef = z.infer<typeof ModelDef>
 
 // =============================================================================
-// Rules (CLAUDE.md §6.5)
+// Rules (SPECS.md §6.5)
 // =============================================================================
 
 export const FieldValidateRule = z.object({
@@ -131,7 +131,7 @@ const ValidateBlock = z.union([HookFlag, z.object({ rules: z.array(FieldValidate
 const ResolveBlock = z.union([HookFlag, z.object({ rules: z.array(ResolveRule) }).strict()])
 
 // =============================================================================
-// UI binding (CLAUDE.md §8) — Shapes A/B/C/D
+// UI binding (SPECS.md §8) — Shapes A/B/C/D
 // =============================================================================
 
 // A FieldEntry is a single-key object like { FieldRadio: { path, ... } }.
@@ -336,7 +336,7 @@ export type ProgramDef = z.infer<typeof ProgramDef>
 // Project block
 // =============================================================================
 
-// project.ui keys are forwarded verbatim into UIConfig (see CLAUDE.md §10
+// project.ui keys are forwarded verbatim into UIConfig (see SPECS.md §10
 // step 6). We accept any string-keyed value here; the validator separately
 // checks that keys match the real UIConfig field names.
 const ProjectUI = z.record(z.string(), z.unknown())

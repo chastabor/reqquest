@@ -11,7 +11,7 @@
           - { path: totalPets,     label: "Total Pets" }
 
   Each `entry.path` is validated against the prompt's model schema. Use
-  inside a `cases:` branch (CLAUDE.md §8 Shape C) when the readout should
+  inside a `cases:` branch (SPECS.md §8 Shape C) when the readout should
   be conditional.
 -->
 <script lang="ts">

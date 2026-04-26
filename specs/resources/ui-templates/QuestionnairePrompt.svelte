@@ -1,6 +1,6 @@
 <!--
   QuestionnairePrompt — layout wrapper for prompt forms. Use as the
-  outer `wrap:` of a `fields:` shorthand (CLAUDE.md §8) when the prompt
+  outer `wrap:` of a `fields:` shorthand (SPECS.md §8) when the prompt
   benefits from a styled intro block, optional external links, and a
   centered/full-width container.
 

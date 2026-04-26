@@ -6,7 +6,7 @@ import {
 } from '../../src/ir/derive.js'
 
 describe('toSnakeCase', () => {
-  // Cases from CLAUDE.md §3.
+  // Cases from SPECS.md §3.
   it('converts camelCase', () => {
     expect(toSnakeCase('stateResidencePrompt')).toBe('state_residence_prompt')
     expect(toSnakeCase('stateResidencePrequalReq')).toBe('state_residence_prequal_req')

@@ -59,7 +59,7 @@ reqquest-chas/
 ├── docs/          # sitemap.md + user-story docs (applicant, reviewer, configuration, roles)
 ├── specs/         # spec-driven authoring of downstream projects
 │   ├── README.md          # operator guide (write a spec, run the generator)
-│   ├── CLAUDE.md          # spec format reference (every field, every shape)
+│   ├── SPECS.md           # spec format reference (every field, every shape)
 │   ├── DESIGN.md          # this file (framework background)
 │   ├── src/               # the generator (TypeScript, Node CLI)
 │   │   ├── cli.ts            # `reqquest-gen` entry; --emit / --dry-run / --verify
@@ -385,7 +385,7 @@ Conventions worth following:
 
 ## 12. Building a New Downstream Project
 
-For greenfield projects, the recommended path is **spec-driven**: author a single YAML in `specs/requirements/` and run the generator. Operator guide at `specs/README.md`; spec format reference at `specs/CLAUDE.md`. One command produces a complete, compilable project:
+For greenfield projects, the recommended path is **spec-driven**: author a single YAML in `specs/requirements/` and run the generator. Operator guide at `specs/README.md`; spec format reference at `specs/SPECS.md`. One command produces a complete, compilable project:
 
 ```bash
 cd specs && npm run gen requirements/<name>.spec.yml -- --emit --verify

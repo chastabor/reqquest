@@ -17,7 +17,7 @@ export interface LoadFixtureOpts {
 /**
  * Load a referenceData fixture from disk and return the parsed array.
  *
- * Per CLAUDE.md §5, fixture paths are repo-root-relative; we accept either
+ * Per SPECS.md §5, fixture paths are repo-root-relative; we accept either
  * .yml/.yaml or .json and inline the parsed result verbatim into the
  * generated `as const` literal.
  */
