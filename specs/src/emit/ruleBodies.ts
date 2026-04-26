@@ -56,7 +56,8 @@ function emitFieldRule (rule: FieldValidateRuleDef, scope: Scope): string {
 
   const typeExpr = rule.messageType === 'warning' ? 'MutationMessageType.warning' : 'MutationMessageType.error'
   const messageExpr = rewriteInterpolation(rule.message, scope)
-  const push = `messages.push({ type: ${typeExpr}, arg: ${quoteString(rule.field)}, message: ${messageExpr} })`
+  const argClause = rule.arg === null ? '' : `arg: ${quoteString(rule.arg ?? rule.field)}, `
+  const push = `messages.push({ type: ${typeExpr}, ${argClause}message: ${messageExpr} })`
   return `if (${predicate}) ${push}`
 }
 

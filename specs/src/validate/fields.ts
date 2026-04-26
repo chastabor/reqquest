@@ -94,6 +94,12 @@ function walkRules (
         log(`${ctx}.equalsLabelOf: ${eq.reason} on ${model.id}`)
       }
     }
+    if (typeof rule.arg === 'string') {
+      const argRef = lookupModelField(model, modelById, rule.arg)
+      if (!argRef.found) {
+        log(`${ctx}.arg: ${argRef.reason} on ${model.id}`)
+      }
+    }
     if (rule.source) {
       const src = modelById.get(rule.source)
       if (!src) {

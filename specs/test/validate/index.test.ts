@@ -280,6 +280,58 @@ programs:
     expect(() => validateSpec(r)).toThrow(/list cannot be empty/)
   })
 
+  it('flags an unknown arg override field', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, required: true, arg: nope, message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/\.arg: unknown field "nope"/)
+  })
+
+  it('accepts arg: null (form-level message)', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: boolean } }
+prompts:
+  p:
+    title: P
+    model: M
+    validate:
+      rules:
+        - { field: x, noneOf: [false], arg: null, message: "..." }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).not.toThrow()
+  })
+
   it('accepts oneOf with matching value types on a nested string field', async () => {
     const yaml = `
 specVersion: 2

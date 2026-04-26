@@ -118,6 +118,28 @@ describe('emitFieldValidateBody', () => {
     ], scope)
     expect(body).toContain('data.distemperDoc?.mime != null && ["application/x-msdownload"].includes(data.distemperDoc?.mime)')
   })
+
+  it('overrides the message arg when `arg` is a string', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('otherCatsVaccinesPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'distemperDoc.mime', oneOf: ['image/jpeg'], arg: 'distemperDoc', message: 'bad mime' }
+    ], scope)
+    expect(body).toContain('arg: "distemperDoc"')
+    expect(body).not.toContain('arg: "distemperDoc.mime"')
+  })
+
+  it('omits the arg key when `arg` is null (form-level message)', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('haveYardPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    const body = emitFieldValidateBody([
+      { field: 'haveYard', noneOf: [false], arg: null, message: 'denied' }
+    ], scope)
+    expect(body).toContain('messages.push({ type: MutationMessageType.error, message: "denied" })')
+    expect(body).not.toContain('arg:')
+  })
 })
 
 describe('emitResolveBody', () => {

@@ -28,9 +28,6 @@
 #   Legend text interpolates `{{config.residentOfState}}`, which the
 #   generator now rewrites to `gatheredConfigData.residentOfState` in
 #   Svelte (SPECS.md §6.5).
-# - step1/2/3PostResidencePrompt — error-vs-warning when allow === false;
-#   rule grammar has no "when value equals X, emit message" predicate
-#   → validate: true.
 # - stateResidenceConfirmationReq.resolve — message reads allConfig.state_residence_req.residentOfState
 #   (cross-requirement config); rule grammar's config.<name> is own-config only → resolve: true.
 # - idTypeReq.resolve — three-prompt branching with optional SSN top-up → resolve: true.
@@ -170,7 +167,7 @@ prompts:
       rules:
         - { field: residentIdDoc, maxSize: '10MB',
             message: "This document is too large, please upload a file less than 10MB." }
-        - { field: residentIdDoc.mime, oneOf: ['image/jpeg'],
+        - { field: residentIdDoc.mime, oneOf: ['image/jpeg'], arg: residentIdDoc,
             message: "File must be of type .jpeg or .jpg" }
     # Hashes uploaded files into `residentIdDoc.shasum`.
     preProcessData: true
@@ -247,9 +244,11 @@ prompts:
           - { when: "allow",                text: "Applicant is allowed to continue." }
           - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
           - { else: true,                   text: "" }
-    # `allow === false` must produce a hard error (blocks save) — that
-    # second branch isn't expressible as a rule, so author owns it.
-    validate: true
+    validate:
+      rules:
+        - { field: allow, required: true, message: "Please confirm if allowed to continue" }
+        - { field: allow, noneOf: [false], arg: null,
+            message: "Validation type error creates hard ui flow stop, prevents continuing to next prompt" }
 
   step2PostResidencePrompt:
     title: Accessible prompt 2 of 2, req 2
@@ -268,8 +267,11 @@ prompts:
           - { when: "allow",                text: "Applicant is allowed to continue." }
           - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
           - { else: true,                   text: "" }
-    # `allow === false` produces a warning (doesn't block save).
-    validate: true
+    validate:
+      rules:
+        - { field: allow, required: true, message: "Please confirm if allowed to continue" }
+        - { field: allow, noneOf: [false], messageType: warning, arg: null,
+            message: "Validation type warning does not stop UI flow to next prompt" }
 
   step3PostResidencePrompt:
     title: Accessible prompt 1 of 1, req 3
@@ -288,7 +290,11 @@ prompts:
           - { when: "allow",                text: "Applicant is allowed to continue." }
           - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
           - { else: true,                   text: "" }
-    validate: true
+    validate:
+      rules:
+        - { field: allow, required: true, message: "Please confirm if allowed to continue" }
+        - { field: allow, noneOf: [false], messageType: warning, arg: null,
+            message: "Validation type warning does not stop UI flow to next prompt" }
 
   thanksOrNoThanksPrompt:
     title: Thanks or no thanks
