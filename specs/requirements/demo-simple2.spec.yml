@@ -1,0 +1,469 @@
+# =============================================================================
+# ReqQuest Specification — demo "simple2"
+# =============================================================================
+# Re-implementation of `demos/src/simple/` using the spec format documented
+# in SPECS.md. The simple demo showcases:
+#
+# - Per-period requirement configuration (`state_residence_req` lets an
+#   admin pick which state qualifies, defaulting to Texas).
+# - `gatherConfig` from one requirement into prompts on other requirements
+#   (state name flows into both the applicant prompt and the reviewer
+#   confirmation prompt).
+# - File upload with checksum hashing (`residentIdDoc`).
+# - Multi-prompt requirements with branching logic
+#   (`step1_post_residence_req` over two prompts; `id_type_req` over
+#   three prompts where the third is conditionally needed).
+# - A second program with one optional requirement
+#   (`thanks_or_no_thanks_program`) used to demonstrate program
+#   opt-in / opt-out.
+#
+#
+# Fell back to author-owned (true / Shape D) where the rule grammar can't
+# express the original behavior:
+#
+# - stateResidencePrompt — regex on phone/email/zip → validate: true.
+#   File-size check + MIME-type check (rule grammar handles `maxSize:`
+#   but not MIME) → preValidate: true. Shasum hashing → preProcessData: true.
+#   Legend text interpolates `{{config.residentOfState}}`, which the
+#   generator now rewrites to `gatheredConfigData.residentOfState` in
+#   Svelte (SPECS.md §6.5).
+# - step1/2/3PostResidencePrompt — error-vs-warning when allow === false;
+#   rule grammar has no "when value equals X, emit message" predicate
+#   → validate: true.
+# - stateResidenceConfirmationReq.resolve — message reads allConfig.state_residence_req.residentOfState
+#   (cross-requirement config); rule grammar's config.<name> is own-config only → resolve: true.
+# - idTypeReq.resolve — three-prompt branching with optional SSN top-up → resolve: true.
+# - stateResidenceReq.configuration.ui.configure — needs a state-name dropdown driven by StateList,
+#   but Shape A has no access to fetched in configure scope → component:.
+# =============================================================================
+
+specVersion: 2
+project:
+  id: simple2
+  name: Simple Pet Adoption
+  multipleRequestsPerPeriod: false
+
+# =============================================================================
+# MODELS
+# =============================================================================
+models:
+
+  # ---- residence ----
+  StateList:
+    group: residence
+    kind: referenceData
+    shape: { value: string, label: string }
+    fixture: specs/resources/data/states.yml
+
+  StateResidenceConfig:
+    group: residence
+    required: [residentOfState]
+    properties:
+      residentOfState: { enum: StateList, by: label }
+
+  UploadInfo:
+    group: residence
+    required: [_type, multipartIndex, name, mime, size]
+    properties:
+      _type:          string
+      multipartIndex: number
+      name:           string
+      mime:           string
+      size:           number
+      shasum:         string
+
+  StateResidencePrompt:
+    group: residence
+    # Prompt schemas conventionally have no `required:` — the framework
+    # expects `Partial<Data>` in validate signatures (the underlying
+    # required-field check is enforced by `validate.rules`, not by JSON
+    # Schema). Required-ness flows through the spec's `validate.rules`.
+    properties:
+      residentOfRequiredState: boolean
+      firstName:               string
+      lastName:                string
+      streetAddress:           string
+      emailAddress:            string
+      phoneNumber:             string
+      city:                    string
+      zipCode:                 string
+      residentIdDoc:           UploadInfo
+
+  StateResidenceConfirmationPrompt:
+    group: residence
+    properties:
+      residentOfRequiredState: boolean
+      residenceIsHome:         boolean
+
+  # ---- step ----
+  Step1PostResidencePrompt:
+    group: step
+    properties:
+      allow: boolean
+
+  Step2PostResidencePrompt:
+    group: step
+    properties:
+      allow: boolean
+
+  Step3PostResidencePrompt:
+    group: step
+    properties:
+      allow: boolean
+
+  ThanksOrNoThanksPrompt:
+    group: step
+    properties:
+      thanks: boolean
+
+  IDValuesPrompt:
+    group: step
+    properties:
+      type:       string          # 'dodid' | 'ssn' (constrained at the UI)
+      dodidValue: string
+      ssnValue:   string
+
+  IDValuesExtraDataPrompt:
+    group: step
+    properties:
+      allow: boolean
+
+  SSNValuePrompt:
+    group: step
+    properties:
+      value: string
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+
+  # ---------------------------------------------------------------------------
+  # residence -----------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  stateResidencePrompt:
+    title: State residency, prompt 1 of 1, req 1
+    description: Applicant will identify if they reside in the required state.
+    model: StateResidencePrompt
+    gatherConfig:
+      stateResidenceReq: [residentOfState]
+    ui:
+      form:
+        # `{{config.residentOfState}}` resolves to
+        # `gatheredConfigData.residentOfState` in Svelte (SPECS.md §6.5).
+        template: ResidencePrompt
+        props:
+          gate:
+            path: residentOfRequiredState
+            legend: "Are you a resident of {{config.residentOfState}}?"
+            showWhen: yes
+          upload:
+            path:  residentIdDoc
+            label: "Residence identification document"
+      display:
+        template: ResidencePromptDisplay
+        props:
+          promptKey: state_residence_prompt
+          isResident: residentOfRequiredState
+          stateLabel: "{{config.residentOfState}}"
+          notResidentMessage: "Not a resident of {{config.residentOfState}}."
+    # File-size + MIME-type guard on the upload — `maxSize:` is rule-able
+    # but the MIME check is not, so the whole hook is author-written.
+    preValidate: true
+    # Hashes uploaded files into `residentIdDoc.shasum`.
+    preProcessData: true
+    # Contact-field validation uses regex (phone/email/zip); the rule
+    # grammar can't express that, so author owns the logic.
+    validate: true
+
+  stateResidenceConfirmationPrompt:
+    title: State residency confirmation
+    description: Reviewer will confirm the applicant's residency.
+    model: StateResidenceConfirmationPrompt
+    gatherConfig:
+      stateResidenceReq: [residentOfState]
+    ui:
+      form:
+        # Both radios interpolate the gathered state name into their
+        # legend text. The generator rewrites `{{config.residentOfState}}`
+        # to `gatheredConfigData.residentOfState`.
+        fields:
+          - FieldRadio:
+              path: residentOfRequiredState
+              boolean: true
+              legendText: "Confirm applicant is a resident of {{config.residentOfState}}?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldRadio:
+              path: residenceIsHome
+              boolean: true
+              legendText: "Confirm applicant address provided is a home within {{config.residentOfState}}?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        text: "Applicant is {{ residentOfRequiredState ? '' : 'NOT' }} a resident of {{config.residentOfState}}. Applicant's home is {{ residenceIsHome ? '' : 'NOT' }} within the state of {{config.residentOfState}}."
+    validate:
+      rules:
+        - { field: residentOfRequiredState, required: true,
+            message: "Please confirm whether applicant is a resident of {{config.residentOfState}}." }
+        - { field: residenceIsHome, required: true,
+            message: "Please validate whether applicant address provided is a home in {{config.residentOfState}}." }
+
+  # ---------------------------------------------------------------------------
+  # step ----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  step1PostResidencePrompt:
+    title: Accessible prompt 1 of 2, req 2
+    description: Identifies whether requirement+prompts show post previous req that returns disqualifying.
+    model: Step1PostResidencePrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: allow
+              boolean: true
+              legendText: "Should we allow the flow to continue?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        cases:
+          - { when: "allow",                text: "Applicant is allowed to continue." }
+          - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
+          - { else: true,                   text: "" }
+    # `allow === false` must produce a hard error (blocks save) — that
+    # second branch isn't expressible as a rule, so author owns it.
+    validate: true
+
+  step2PostResidencePrompt:
+    title: Accessible prompt 2 of 2, req 2
+    description: Identifies whether requirement+prompts show post previous req that returns disqualifying.
+    model: Step2PostResidencePrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: allow
+              boolean: true
+              legendText: "Should we allow the flow to continue?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        cases:
+          - { when: "allow",                text: "Applicant is allowed to continue." }
+          - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
+          - { else: true,                   text: "" }
+    # `allow === false` produces a warning (doesn't block save).
+    validate: true
+
+  step3PostResidencePrompt:
+    title: Accessible prompt 1 of 1, req 3
+    description: Identifies whether requirement+prompts show post previous req that returns disqualifying.
+    model: Step3PostResidencePrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: allow
+              boolean: true
+              legendText: "Should we allow the flow to continue?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        cases:
+          - { when: "allow",                text: "Applicant is allowed to continue." }
+          - { when: "allow === false",      text: "Applicant is NOT allowed to continue." }
+          - { else: true,                   text: "" }
+    validate: true
+
+  thanksOrNoThanksPrompt:
+    title: Thanks or no thanks
+    description: Simulate a prompt within a requirement that a user may not want.
+    model: ThanksOrNoThanksPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: thanks
+              boolean: true
+              legendText: "Would you like to see if you are eligible for this program?"
+              items: [{ label: Thanks, value: true }, { label: No Thanks, value: false }]
+      display:
+        cases:
+          - { when: "thanks",          text: "Applicant is interested in this program." }
+          - { when: "thanks === false", text: "Applicant is NOT interested in this program." }
+          - { else: true,              text: "" }
+    validate:
+      rules:
+        - { field: thanks, required: true, message: "Please confirm thanks or no thanks" }
+
+  idValuesPrompt:
+    title: DODId or SSN
+    description: Give me a DODId or SSN.
+    model: IDValuesPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: type
+              string: true
+              legendText: "Are you inputing DODId or SSN?"
+              items: [{ label: DODId, value: dodid }, { label: SSN, value: ssn }]
+          - FieldTextInput:
+              path: dodidValue
+              labelText: "Department of Defense id"
+              conditional: "type === 'dodid'"
+          - FieldTextInput:
+              path: ssnValue
+              labelText: "Social security number"
+              conditional: "type === 'ssn'"
+      display:
+        text: "{{type}}: {{ type === 'dodid' ? dodidValue : ssnValue }}"
+    validate:
+      rules:
+        - { field: type,       required: true, message: "Id type required" }
+        - { field: ssnValue,   requiredWhen: "type === 'ssn'",   message: "SSN value required" }
+        - { field: dodidValue, requiredWhen: "type === 'dodid'", message: "DODId value required" }
+
+  idValuesExtraDataPrompt:
+    title: Extra data before SSN optional Prompt
+    description: Collect extra data before the optional SSN prompt.
+    model: IDValuesExtraDataPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: allow
+              boolean: true
+              legendText: "Should we allow the flow to continue?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+      display:
+        cases:
+          - { when: "allow",           text: "Applicant is allowed to continue." }
+          - { when: "allow === false", text: "Applicant is NOT allowed to continue." }
+          - { else: true,              text: "" }
+    validate:
+      rules:
+        - { field: allow, required: true, message: "Allow value required" }
+
+  ssnValuePrompt:
+    title: SSN
+    description: Give me your SSN.
+    model: SSNValuePrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: value
+              labelText: "Social security number"
+      display:
+        text: "SSN: {{value}}"
+    # Original prompt has no validation (commented out).
+    validate: false
+
+# =============================================================================
+# REQUIREMENTS
+# =============================================================================
+requirements:
+
+  # ---- residence ----
+  stateResidenceReq:
+    phase: QUALIFICATION
+    title: Must be a resident of required state
+    navTitle: Residency
+    description: Applicant must be a resident of the required state.
+    prompts: [stateResidencePrompt]
+    resolve:
+      rules:
+        - { when: "stateResidencePrompt.residentOfRequiredState == null", status: PENDING }
+        - { when: "stateResidencePrompt.residentOfRequiredState",          status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "You must reside in {{config.residentOfState}} to qualify." }
+    configuration:
+      model: StateResidenceConfig
+      default: { residentOfState: Texas }
+      validate:
+        rules:
+          - { field: residentOfState, required: true,
+              message: "Please specify the state to which an applicant must reside." }
+      ui:
+        # The configure form is a state-name dropdown driven by
+        # `StateList`. Shape A field shorthand can't pull items from a
+        # referenceData (no `fetched` in configure scope), so keep it as
+        # an escape-hatch component the author owns.
+        configure: { component: StateResidenceConfigure }
+
+  stateResidenceConfirmationReq:
+    phase: APPROVAL
+    title: Confirm resident of required state
+    navTitle: Confirm residency
+    description: Reviewer must validate ID provided and confirm as resident of state.
+    prompts: [stateResidenceConfirmationPrompt]
+    emits: [PENDING, MET, DISQUALIFYING]
+    # Resolve message reads the OTHER requirement's per-period config
+    # (`state_residence_req.residentOfState`); rule grammar only exposes
+    # this requirement's own `config.<name>`, so author owns it.
+    resolve: true
+
+  # ---- step ----
+  step1PostResidenceReq:
+    phase: QUALIFICATION
+    title: Accessible validation stop 1?
+    navTitle: Accessible validation stop 1?
+    description: Identifies whether requirement+prompts show post previous req that returns disqualifying.
+    prompts: [step1PostResidencePrompt, step2PostResidencePrompt]
+    resolve:
+      rules:
+        - { when: "step1PostResidencePrompt.allow == null", status: PENDING }
+        - { when: "step2PostResidencePrompt.allow == null", status: PENDING }
+        - { when: "step1PostResidencePrompt.allow && step2PostResidencePrompt.allow", status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Not allowed." }
+
+  step3PostResidenceReq:
+    phase: QUALIFICATION
+    title: Accessible post hard req stop?
+    navTitle: Accessible post hard req stop?
+    description: Identifies whether requirement+prompts show post previous req that returns disqualifying.
+    prompts: [step3PostResidencePrompt]
+    resolve:
+      rules:
+        - { when: "step3PostResidencePrompt.allow == null", status: PENDING }
+        - { when: "step3PostResidencePrompt.allow",          status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Not allowed." }
+
+  thanksOrNoThanksReq:
+    phase: QUALIFICATION
+    title: May or may not want
+    navTitle: May or may not want
+    description: Simulate a requirement within a program/track that a user may not want.
+    prompts: [thanksOrNoThanksPrompt]
+    resolve:
+      rules:
+        - { when: "thanksOrNoThanksPrompt.thanks == null", status: PENDING }
+        - { when: "thanksOrNoThanksPrompt.thanks",          status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Not allowed." }
+
+  idTypeReq:
+    phase: QUALIFICATION
+    title: DODId or SSN
+    navTitle: DODId or SSN
+    description: Simulate collecting potential similar data from two different prompt screens.
+    prompts: [idValuesPrompt, idValuesExtraDataPrompt, ssnValuePrompt]
+    emits: [PENDING, MET, DISQUALIFYING]
+    # Branching across three prompts (DODId path needs the extra-data
+    # prompt + optional SSN top-up; SSN path is direct) — too tangled
+    # for first-match rules.
+    resolve: true
+
+# =============================================================================
+# PROGRAMS
+# =============================================================================
+programs:
+
+  adoptAPetProgram:
+    title: Adopt a Pet
+    requirements:
+      - stateResidenceReq                # QUALIFICATION
+      - step1PostResidenceReq            # QUALIFICATION
+      - step3PostResidenceReq            # QUALIFICATION
+      - idTypeReq                        # QUALIFICATION
+      - stateResidenceConfirmationReq    # APPROVAL
+
+  thanksOrNoThanksProgram:
+    title: Thanks or No Thanks Program
+    requirements:
+      - thanksOrNoThanksReq              # QUALIFICATION

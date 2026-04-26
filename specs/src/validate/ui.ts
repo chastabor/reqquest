@@ -9,7 +9,8 @@ type Logger = (msg: string) => void
 //   path / labelPath / *Path → field on the scope model
 //   conditional / when       → expression
 //   text                     → string with `{{ … }}` interpolation
-// Other keys pass through (props for carbon-svelte / templates).
+// Other string props are inspected for `{{ … }}` interpolations and
+// validated against the scope; static strings pass through unchanged.
 export function validateUI (spec: ResolvedSpec, log: Logger): void {
   for (const prompt of spec.prompts) walkPrompt(prompt, spec, log)
   for (const req of spec.requirements) walkRequirement(req, spec, log)
@@ -111,7 +112,9 @@ function handleStringField (
     if (!result.found) log(`${ctx}: ${result.reason} on ${scopeModel.id}`)
   } else if (key === 'conditional' || key === 'when') {
     validateExpression(value, scope, { modelById: spec.modelById, ctx, log })
-  } else if (key === 'text') {
+  } else {
+    // Field/template props (and `text:`) may contain `{{ … }}`
+    // interpolations. Strings without interpolations are inert.
     validateInterpolations(value, scope, { modelById: spec.modelById, ctx, log })
   }
 }

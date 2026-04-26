@@ -28,6 +28,7 @@ export function validateExpression (source: string, scope: Scope, opts: Validate
 
 /** Validate every `{{ ... }}` interpolation inside a string. */
 export function validateInterpolations (source: string, scope: Scope, opts: ValidateExprOpts): void {
+  if (!source.includes('{{')) return                                          // fast path — most string props have no interpolations
   for (const { expr } of extractInterpolations(source)) {
     validateExpression(expr, scope, { ...opts, ctx: `${opts.ctx}: {{${expr}}}` })
   }

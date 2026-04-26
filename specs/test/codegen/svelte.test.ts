@@ -42,6 +42,48 @@ describe('printSvelteAttr', () => {
     expect(printSvelteAttr('conditional', 'haveYard', scope)).toBe('conditional={data.haveYard}')
     expect(printSvelteAttr('when', '!haveYard', scope)).toBe('when={!data.haveYard}')
   })
+
+  it('emits a single-interpolation prop as a bare expression binding', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('whichStatePrompt')! }
+    expect(printSvelteAttr('label', '{{ stateName ?? state }}', scope))
+      .toBe('label={data.stateName ?? data.state}')
+  })
+
+  it('emits mixed-interpolation props as template-literal bindings', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('mustExerciseYourDogPrompt')! }
+    expect(printSvelteAttr('legendText', 'Exercise at least {{config.minExerciseHours}} hours.', scope))
+      .toBe('legendText={`Exercise at least ${gatheredConfigData.minExerciseHours} hours.`}')
+  })
+
+  it('routes config.X through gatheredConfigData in single-interpolation form', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('mustExerciseYourDogPrompt')! }
+    expect(printSvelteAttr('value', '{{ config.minExerciseHours }}', scope))
+      .toBe('value={gatheredConfigData.minExerciseHours}')
+  })
+
+  it('preserves static strings without {{ }} as quoted attributes', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('haveYardPrompt')! }
+    expect(printSvelteAttr('legendText', 'Do you have a yard?', scope))
+      .toBe('legendText="Do you have a yard?"')
+  })
+
+  it('rewrites interpolations inside nested object props', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('mustExerciseYourDogPrompt')! }
+    expect(printSvelteAttr('gate', { legend: 'At least {{config.minExerciseHours}} hours.', showWhen: 'yes' }, scope))
+      .toBe('gate={{ legend: `At least ${gatheredConfigData.minExerciseHours} hours.`, showWhen: "yes" }}')
+  })
+
+  it('rewrites interpolations inside arrays of objects', async () => {
+    const r = await loadIR()
+    const scope: PromptScope = { kind: 'prompt', prompt: r.promptById.get('mustExerciseYourDogPrompt')! }
+    expect(printSvelteAttr('items', [{ label: 'min: {{config.minExerciseHours}}', value: 1 }], scope))
+      .toBe('items={[{ label: `min: ${gatheredConfigData.minExerciseHours}`, value: 1 }]}')
+  })
 })
 
 describe('printSvelteAttrs', () => {

@@ -6,6 +6,7 @@ import { rewriteExpression } from '../../expr/rewrite.js'
 import type { TemplateRegistry } from './templates.js'
 
 const SLOT_DISCRIMINATORS = ['component', 'fields', 'template', 'text', 'cases'] as const
+const SVELTE_REWRITE = { target: 'svelte' as const }
 
 // Inputs are the unparsed `ui.<slot>` shape from the spec — the zod
 // schema validates which keys are present. The dispatcher here picks
@@ -17,6 +18,8 @@ export interface SlotContext {
   scope: PromptScope | ConfigScope
   /** Whether the prompt that owns this slot has a `fetch:` block. */
   hasFetch: boolean
+  /** Whether the prompt that owns this slot has `gatherConfig:`. Drives the `gatheredConfigData` declaration. */
+  hasGatherConfig: boolean
   spec: ResolvedSpec
   templates: TemplateRegistry
   /** Spec path label, e.g. `prompts.haveYardPrompt.ui.form` — surfaced in errors. */
@@ -77,12 +80,7 @@ async function shapeA (slot: SlotShape, ctx: SlotContext): Promise<string> {
     body = fieldLines.join('\n')
   }
 
-  return assembleSvelte({
-    carbonComponents,
-    templateImports,
-    declareFetched: ctx.hasFetch,
-    body
-  })
+  return assembleSvelte(ctx, { carbonComponents, templateImports, body })
 }
 
 // =============================================================================
@@ -94,9 +92,8 @@ async function shapeB (slot: SlotShape, ctx: SlotContext): Promise<string> {
   const props = slot.props as Record<string, unknown> | undefined
   const dataPart = ctx.hasFetch ? '{data} {fetched}' : '{data}'
   const body = `<${slot.template} ${dataPart} ${printSvelteAttrs(props, ctx.scope)} />`
-  return assembleSvelte({
+  return assembleSvelte(ctx, {
     templateImports: [{ name: slot.template, path }],
-    declareFetched: ctx.hasFetch,
     body
   })
 }
@@ -107,10 +104,7 @@ async function shapeB (slot: SlotShape, ctx: SlotContext): Promise<string> {
 
 async function shapeC (slot: SlotShape, ctx: SlotContext): Promise<string> {
   if ('text' in slot) {
-    return assembleSvelte({
-      declareFetched: ctx.hasFetch,
-      body: rewriteSvelteText(slot.text, ctx.scope)
-    })
+    return assembleSvelte(ctx, { body: rewriteSvelteText(slot.text, ctx.scope) })
   }
 
   const branches = slot.cases as Array<Record<string, any>>
@@ -119,13 +113,13 @@ async function shapeC (slot: SlotShape, ctx: SlotContext): Promise<string> {
   const lines: string[] = []
   branches.forEach((branch, i) => {
     const intro = i === 0
-      ? `{#if ${rewriteExpression(branch.when, ctx.scope)}}`
-      : branch.else === true ? '{:else}' : `{:else if ${rewriteExpression(branch.when, ctx.scope)}}`
+      ? `{#if ${rewriteExpression(branch.when, ctx.scope, SVELTE_REWRITE)}}`
+      : branch.else === true ? '{:else}' : `{:else if ${rewriteExpression(branch.when, ctx.scope, SVELTE_REWRITE)}}`
     lines.push(intro + renderBranchContent(branch, ctx))
   })
   lines.push('{/if}')
 
-  return assembleSvelte({ templateImports, declareFetched: ctx.hasFetch, body: lines.join('\n') })
+  return assembleSvelte(ctx, { templateImports, body: lines.join('\n') })
 }
 
 async function ensureCaseTemplates (
@@ -157,40 +151,37 @@ function renderBranchContent (branch: Record<string, any>, ctx: SlotContext): st
 // =============================================================================
 
 function shapeDStub (componentName: string, ctx: SlotContext): string {
-  return assembleSvelte({
-    declareFetched: ctx.hasFetch,
-    body: `<!-- TODO: implement ${componentName} -->`
-  })
+  return assembleSvelte(ctx, { body: `<!-- TODO: implement ${componentName} -->` })
 }
 
 function emptyComponent (ctx: SlotContext): string {
-  return assembleSvelte({ declareFetched: ctx.hasFetch, body: '' })
+  return assembleSvelte(ctx, { body: '' })
 }
 
 // =============================================================================
 // Svelte file assembly
 // =============================================================================
 
-interface AssembleOpts {
+interface AssembleBody {
   carbonComponents?: Set<string>
   templateImports?: Array<{ name: string, path: string }>
-  declareFetched: boolean
   body: string
 }
 
-function assembleSvelte (opts: AssembleOpts): string {
+function assembleSvelte (ctx: SlotContext, parts: AssembleBody): string {
   const importLines: string[] = []
-  if (opts.carbonComponents && opts.carbonComponents.size > 0) {
-    importLines.push(`import { ${[...opts.carbonComponents].sort().join(', ')} } from '@txstate-mws/carbon-svelte'`)
+  if (parts.carbonComponents && parts.carbonComponents.size > 0) {
+    importLines.push(`import { ${[...parts.carbonComponents].sort().join(', ')} } from '@txstate-mws/carbon-svelte'`)
   }
-  for (const tpl of opts.templateImports ?? []) {
+  for (const tpl of parts.templateImports ?? []) {
     importLines.push(`import ${tpl.name} from ${quoteString(tpl.path)}`)
   }
 
   const exports = [
     'export let data: any'
   ]
-  if (opts.declareFetched) exports.push('export let fetched: any')
+  if (ctx.hasFetch) exports.push('export let fetched: any')
+  if (ctx.hasGatherConfig) exports.push('export let gatheredConfigData: any')
 
   const lines: string[] = []
   lines.push('<script lang="ts">')
@@ -198,7 +189,7 @@ function assembleSvelte (opts: AssembleOpts): string {
   for (const line of exports) lines.push(`  ${line}`)
   lines.push('</script>')
   lines.push('')
-  lines.push(opts.body)
+  lines.push(parts.body)
   lines.push('')
   return lines.join('\n')
 }

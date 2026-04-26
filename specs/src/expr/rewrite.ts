@@ -1,8 +1,19 @@
 import { parseExpression, walkIdents, type IdentRoot } from './parse.js'
 import type { Scope } from './scope.js'
-import { extractInterpolations } from './interpolate.js'
+import { extractInterpolations, type Interpolation } from './interpolate.js'
 
-const PASSTHROUGH = new Set(['data', 'config', 'undefined', 'NaN', 'Infinity'])
+const TS_PASSTHROUGH = new Set(['data', 'config', 'undefined', 'NaN', 'Infinity'])
+const SVELTE_PASSTHROUGH = new Set(['data', 'undefined', 'NaN', 'Infinity'])
+
+/**
+ * `target: 'svelte'` rewrites `config.X` to `gatheredConfigData.X` so
+ * Svelte components can read it via the framework-supplied prop.
+ * Default `'ts'` keeps `config.X` as the function parameter name used
+ * in validate/resolve hook bodies.
+ */
+export interface RewriteOpts {
+  target?: 'ts' | 'svelte'
+}
 
 /**
  * Rewrite an expression string for emission. Identifier-resolution rules
@@ -13,16 +24,19 @@ const PASSTHROUGH = new Set(['data', 'config', 'undefined', 'NaN', 'Infinity'])
  *   extract         : same as requirement, lookup over the whole spec
  *   config          : bare `field`           → `data.field` (data IS the config)
  *
- * `data.*` and `config.*` are passed through unchanged.
+ * `data.*` is always passed through. `config.*` passes through with the
+ * default `target: 'ts'`; with `target: 'svelte'` it is rewritten to
+ * `gatheredConfigData.*` so prompt components can read gathered config.
  */
-export function rewriteExpression (source: string, scope: Scope): string {
+export function rewriteExpression (source: string, scope: Scope, opts: RewriteOpts = {}): string {
   const ast = parseExpression(source)
   if (!ast) return source
 
+  const target = opts.target ?? 'ts'
   interface Edit { start: number, end: number, replacement: string }
   const edits: Edit[] = []
   walkIdents(ast, ident => {
-    const replacement = rewriteIdent(ident, scope)
+    const replacement = rewriteIdent(ident, scope, target)
     if (replacement == null) return
     edits.push({
       start: ident.node.getStart() - 1,                                     // -1 for the wrapping `(` injected during parse
@@ -47,16 +61,20 @@ export function rewriteExpression (source: string, scope: Scope): string {
  * Rewrite a string with `{{ … }}` interpolations into a TS template
  * literal. Strings without interpolations come back as a plain string
  * literal (single-quoted via JSON-then-prettier).
+ *
+ * Callers that have already extracted segments (to dispatch on the
+ * empty/single/mixed case) can pass them via `segs` to skip the second
+ * regex scan.
  */
-export function rewriteInterpolation (source: string, scope: Scope): string {
-  const segs = extractInterpolations(source)
-  if (segs.length === 0) return JSON.stringify(source)
+export function rewriteInterpolation (source: string, scope: Scope, opts: RewriteOpts = {}, segs?: Interpolation[]): string {
+  const interpolations = segs ?? extractInterpolations(source)
+  if (interpolations.length === 0) return JSON.stringify(source)
 
   let out = '`'
   let cursor = 0
-  for (const { expr, offset, length } of segs) {
+  for (const { expr, offset, length } of interpolations) {
     out += escapeTemplateLiteral(source.slice(cursor, offset))
-    out += '${' + rewriteExpression(expr, scope) + '}'
+    out += '${' + rewriteExpression(expr, scope, opts) + '}'
     cursor = offset + length
   }
   out += escapeTemplateLiteral(source.slice(cursor))
@@ -64,9 +82,17 @@ export function rewriteInterpolation (source: string, scope: Scope): string {
   return out
 }
 
-function rewriteIdent (ident: IdentRoot, scope: Scope): string | null {
+function rewriteIdent (ident: IdentRoot, scope: Scope, target: 'ts' | 'svelte'): string | null {
   const { root, chain } = ident
-  if (PASSTHROUGH.has(root)) return null
+  const passthrough = target === 'svelte' ? SVELTE_PASSTHROUGH : TS_PASSTHROUGH
+  if (passthrough.has(root)) return null
+  if (root === 'config' && target === 'svelte') {
+    // In Svelte, the framework passes `gatheredConfigData` (not `config`)
+    // to prompt components. In non-prompt scopes the prop doesn't exist;
+    // emitting it anyway gives a clear `gatheredConfigData is not defined`
+    // at compile time, which is preferable to silent passthrough.
+    return chain.length === 0 ? 'gatheredConfigData' : `gatheredConfigData.${chain.join('.')}`
+  }
   switch (scope.kind) {
     case 'prompt':
       return ['data', root, ...chain].join('.')

@@ -92,3 +92,38 @@ describe('rewriteInterpolation', () => {
       .toBe('`a \\`b\\` c ${data.haveYard}`')
   })
 })
+
+describe('rewriteExpression — svelte target', () => {
+  it('rewrites config.X to gatheredConfigData.X in prompt scope', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('mustExerciseYourDogPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    expect(rewriteExpression('config.minExerciseHours', scope, { target: 'svelte' }))
+      .toBe('gatheredConfigData.minExerciseHours')
+  })
+
+  it('still rewrites bare data identifiers in svelte target', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('haveYardPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    expect(rewriteExpression('haveYard', scope, { target: 'svelte' })).toBe('data.haveYard')
+  })
+
+  it('keeps config.X passthrough with default ts target', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('mustExerciseYourDogPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    expect(rewriteExpression('config.minExerciseHours', scope))
+      .toBe('config.minExerciseHours')
+  })
+})
+
+describe('rewriteInterpolation — svelte target', () => {
+  it('routes config.X to gatheredConfigData.X', async () => {
+    const r = await loadIR()
+    const prompt = r.promptById.get('mustExerciseYourDogPrompt')!
+    const scope: PromptScope = { kind: 'prompt', prompt }
+    expect(rewriteInterpolation('exercise {{config.minExerciseHours}} hours', scope, { target: 'svelte' }))
+      .toBe('`exercise ${gatheredConfigData.minExerciseHours} hours`')
+  })
+})

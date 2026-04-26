@@ -27,15 +27,19 @@ export function objectKey (key: string): string {
  * Recursively emit a JSON-like value as a TS literal. Handles primitives,
  * arrays, and plain objects. Throws on unsupported values (functions,
  * symbols, etc.) — callers should sanitize input first.
+ *
+ * `stringHandler` lets a caller substitute its own string emitter — e.g.
+ * the Svelte codegen passes a handler that rewrites `{{ … }}`
+ * interpolations into expression bindings.
  */
-export function printValue (v: unknown): string {
+export function printValue (v: unknown, stringHandler: (s: string) => string = quoteString): string {
   if (v === null) return 'null'
   if (v === undefined) return 'undefined'
-  if (typeof v === 'string') return quoteString(v)
+  if (typeof v === 'string') return stringHandler(v)
   if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (Array.isArray(v)) return '[' + v.map(printValue).join(', ') + ']'
+  if (Array.isArray(v)) return '[' + v.map(item => printValue(item, stringHandler)).join(', ') + ']'
   if (typeof v === 'object') {
-    const entries = Object.entries(v).map(([k, val]) => `${objectKey(k)}: ${printValue(val)}`)
+    const entries = Object.entries(v).map(([k, val]) => `${objectKey(k)}: ${printValue(val, stringHandler)}`)
     return '{ ' + entries.join(', ') + ' }'
   }
   throw new Error(`cannot print value of type ${typeof v}`)

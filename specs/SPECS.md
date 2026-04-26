@@ -248,8 +248,22 @@ identifier resolution rules are:
 
 **Interpolation:** `{{ <expression> }}` appearing inside a string field
 is replaced at emit time with the same evaluation. Used for messages
-that include config (`"...{{config.minExerciseHours}} hours..."`) or
-prompt fields in display text (`"{{ stateName ?? state }}"`).
+that include config (`"...{{config.minExerciseHours}} hours..."`),
+prompt fields in display text (`"{{ stateName ?? state }}"`), and
+field/template props in Shape A and Shape B (e.g.
+`legendText: "Are you a resident of {{config.residentOfState}}?"`).
+
+In the **Svelte UI** (Shape A field props, Shape B template props,
+Shape C `text:` and `cases.when:`/`cases.text:`), `config.<name>`
+resolves to the framework-supplied `gatheredConfigData` prop the UI
+passes to each prompt component. The emitted Svelte file declares
+`export let gatheredConfigData: any` whenever the prompt has
+`gatherConfig:`. Single full-string interpolations emit as bare
+expression bindings (`label={data.stateName ?? data.state}`); mixed
+strings become Svelte template-literal bindings
+(`legendText={\`Are you a resident of ${gatheredConfigData.residentOfState}?\`}`).
+Configure-slot UI is admin-side and does **not** receive
+`gatheredConfigData`, so `config.<name>` is not available there.
 
 ### emits derivation
 

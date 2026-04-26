@@ -44,7 +44,8 @@ async function processPrompt (
 
   const promptScope: PromptScope = { kind: 'prompt', prompt }
   const hasFetch = prompt.raw.fetch != null
-  const baseCtx = { hasFetch, spec, templates }
+  const hasGatherConfig = prompt.gatherConfigSources.length > 0
+  const baseCtx = { hasFetch, hasGatherConfig, spec, templates }
   const namePrefix = upperFirstChar(prompt.id)
   const labelPrefix = `prompts.${prompt.id}.ui`
 
@@ -67,7 +68,15 @@ async function processPrompt (
     if (cfg && cfg.kind === 'regular') {
       const name = `${namePrefix}Configure`
       const configScope: ConfigScope = { kind: 'config', model: cfg }
-      const result = await emitSlot(ui.configure, { ...baseCtx, scope: configScope, hasFetch: false, label: `${labelPrefix}.configure` })
+      // Configure slots are admin-side; the framework does not pass
+      // `gatheredConfigData` or `fetched` to them.
+      const result = await emitSlot(ui.configure, {
+        ...baseCtx,
+        scope: configScope,
+        hasFetch: false,
+        hasGatherConfig: false,
+        label: `${labelPrefix}.configure`
+      })
       write(bundle, uiComponentPath(spec.project.id, prompt.group, name), result)
       binding.configureComponent = { name, importPath: uiComponentImport(prompt.group, name) }
     }
@@ -94,7 +103,7 @@ async function processRequirement (
     const name = `${upperFirstChar(req.id)}Configure`
     const configScope: ConfigScope = { kind: 'config', model: req.configurationModel }
     const label = `requirements.${req.id}.${req.raw.ui?.configure ? 'ui' : 'configuration.ui'}.configure`
-    const result = await emitSlot(slot, { hasFetch: false, scope: configScope, spec, templates, label })
+    const result = await emitSlot(slot, { hasFetch: false, hasGatherConfig: false, scope: configScope, spec, templates, label })
     write(bundle, uiComponentPath(spec.project.id, req.group, name), result)
     binding.configureComponent = { name, importPath: uiComponentImport(req.group, name) }
   }

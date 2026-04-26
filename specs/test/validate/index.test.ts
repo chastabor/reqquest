@@ -284,4 +284,91 @@ programs:
     const r = await ir(yaml)
     expect(() => validateSpec(r)).toThrow(/unknown field "ghost"/)
   })
+
+  it('flags an unknown interpolation in a Shape A field prop', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    ui:
+      form:
+        fields:
+          - FieldText: { path: x, labelText: "Hello {{ ghost }}" }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "ghost"/)
+  })
+
+  it('flags an unknown interpolation inside a Shape B template prop', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    ui:
+      form:
+        template: SomeTemplate
+        props: { label: "Hello {{ ghost }}" }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).toThrow(/unknown field "ghost"/)
+  })
+
+  it('accepts a {{ config.X }} interpolation when X is gathered', async () => {
+    const yaml = `
+specVersion: 2
+project: { id: t, name: T }
+models:
+  M: { group: g, properties: { x: string } }
+  C: { group: g, required: [k], properties: { k: string } }
+prompts:
+  p:
+    title: P
+    model: M
+    gatherConfig:
+      r: [k]
+    ui:
+      form:
+        fields:
+          - FieldText: { path: x, labelText: "Hello {{ config.k }}" }
+requirements:
+  r:
+    phase: APPROVAL
+    title: R
+    prompts: [p]
+    resolve: { rules: [ { else: true, status: MET } ] }
+    configuration:
+      model: C
+      default: { k: hi }
+programs:
+  prog: { title: Prog, requirements: [r] }
+`
+    const r = await ir(yaml)
+    expect(() => validateSpec(r)).not.toThrow()
+  })
 })
