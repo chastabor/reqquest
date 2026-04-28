@@ -1,0 +1,8 @@
+# Ratings 5 Level fixture — referenced by specs via `kind: referenceData` + `fixture:`.
+# 5 numerical levels with associated description.
+# NOTE: values are strings not numbers as TypeScrypt enum numbers are unbound and therefore not checked.
+- { value: "1", label: Unacceptable }
+- { value: "2", label: Poor }
+- { value: "3", label: Neutral }
+- { value: "4", label: Good }
+- { value: "5", label: Excellent }

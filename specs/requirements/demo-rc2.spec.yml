@@ -45,27 +45,44 @@ models:
       acknowledged: boolean
 
   AbilityToAutomateTasksApplicantPrompt:
-    group: automation
+    group: operations
     required: [automated]
     properties:
       automated: boolean
       descriptionOfAutomation: string
 
   AbilityToAutomateTasksReviewerPrompt:
-    group: automation
+    group: operations
     required: [appropriateAutomation]
     properties:
       appropriateAutomation: boolean
       commentOnScripting: string
+
+  FutureCareerInterestApplicantPrompt:
+    group: operations
+    required: [interests]
+    properties:
+      interests: string
+
+  RatingLevels5:
+    group: common
+    kind: referenceData
+    shape: { value: string, label: string }
+    fixture: specs/resources/data/rating_levels_5.yml
+
+  FutureCareerInterestReviewerPrompt:
+    group: operations
+    properties:
+      rating:     { enum: RatingLevels5 }
+      ratingName: { enum: RatingLevels5, by: label }
+
 
 # =============================================================================
 # PROMPTS
 # =============================================================================
 prompts:
 
-  # ---------------------------------------------------------------------------
-  # common -----------------------------------------------------------------
-  # ---------------------------------------------------------------------------
+  # common --------------------------------------------------------------------
   minimumGPAPrompt:
     title: Minimum GPA
     description: >
@@ -128,9 +145,7 @@ prompts:
               legendText: "Applicant acknowledges participation expectations."
               items: [{ label: Yes, value: true }, { label: No, value: false }]
 
-  # ---------------------------------------------------------------------------
   # Operations & Infrastructure Program ---------------------------------------
-  # ---------------------------------------------------------------------------
   abilityToAutomateTasksApplicantPrompt:
     title: Ability to Automate Tasks
     description: Describe your ability to automate manual, repetitive tasks.
@@ -170,6 +185,43 @@ prompts:
     validate:
       rules:
         - { field: appropriateAutomation, required: true, message: "Please review approval of automation."}
+
+  futureCareerInterestApplicantPrompt:
+    title: Future Interest
+    description: Please describe your future dev/ops career interests.
+    model: FutureCareerInterestApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: interests
+              labelText: "Future Interests"
+    validate:
+      rules:
+        - { field: interests, required: true, message: "Please describe your future dev/ops career interests." }
+
+  futureCareerInterestReviewerPrompt:
+    title: Rate applicants career interests
+    description: Rate the applicants future dev/ops career interests.
+    model: FutureCareerInterestReviewerPrompt
+    fetch: RatingLevels5
+    ui:
+      form:
+        template: StateSelect
+        props:
+          path: rating
+          labelPath: ratingName
+          labelText: Rating
+          required: true
+          listKey: ratingLevels5
+      display:
+        text: "{{ ratingName ?? rating }}"
+    validate:
+      rules:
+        - { field: rating, required: true, message: "Please enter a rating" }
+        - { field: ratingName, equalsLabelOf: rating, source: RatingLevels5,
+            message: "Rating level does not match rating entry." }
+
 
 # =============================================================================
 # REQUIREMENTS
@@ -280,6 +332,7 @@ requirements:
       rules:
         - { when: "abilityToAutomateTasksReviewerPrompt.appropriateAutomation", status: MET }
         - { else: true, status: DISQUALIFYING, reason: "Must " }
+
 
 # =============================================================================
 # PROGRAMS
