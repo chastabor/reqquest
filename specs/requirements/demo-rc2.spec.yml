@@ -1,0 +1,315 @@
+# =============================================================================
+# ReqQuest Specification — demo "rc2"
+# =============================================================================
+
+specVersion: 2
+project:
+  id: rc2
+  name: Technical Mentorship Experience
+  multipleRequestsPerPeriod: false
+
+# =============================================================================
+# MODELS
+# =============================================================================
+models:
+
+  GPAPrompt:
+    group: common
+    properties:
+      gpa: number
+
+  GPAConfig:
+    group: common
+    required: [minGPA]
+    properties:
+      minGPA: number
+
+  AvailableHoursPerWeekPrompt:
+    group: common
+    required: [minHours, maxHours]
+    properties:
+      minHours: number
+      maxHours: number
+
+  AvailableHoursPerWeekConfig:
+    group: common
+    required: [minHours, maxHours]
+    properties:
+      minHours: number
+      maxHours: number
+
+  ParticipationAcknowledgementPrompt:
+    group: common
+    required: [acknowledged]
+    properties:
+      acknowledged: boolean
+
+  AbilityToAutomateTasksApplicantPrompt:
+    group: automation
+    required: [automated]
+    properties:
+      automated: boolean
+      descriptionOfAutomation: string
+
+  AbilityToAutomateTasksReviewerPrompt:
+    group: automation
+    required: [appropriateAutomation]
+    properties:
+      appropriateAutomation: boolean
+      commentOnScripting: string
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+
+  # ---------------------------------------------------------------------------
+  # common -----------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  minimumGPAPrompt:
+    title: Minimum GPA
+    description: >
+      The minimum GPA that must be met for some programs.
+    model: GPAPrompt
+    ui:
+      form:
+        fields:
+          - FieldNumber:
+              path: gpa
+              labelText: "GPA"
+              helperText: "You current GPA"
+      display:
+        text: "{{ gpa }} GPA"
+    validate:
+      rules:
+        - { field: gpa, required: true,
+            message: "Please enter your current GPA."}
+
+  availableHoursPerWeekPrompt:
+    title: Available Hours Per Week
+    description: >
+      Available Hours per Week to participate in the program.
+    model: AvailableHoursPerWeekPrompt
+    ui:
+      form:
+        fields:
+          - FieldNumber:
+              path: minHours
+              labelText: "Min Hours"
+              helperText: "Minimum number of Available Hours per Week"
+          - FieldNumber:
+              path: maxHours
+              labelText: "Max Hours"
+              helperText: "Maximum number of Available Hours per Week"
+      display:
+        text: "{{ minHours }} to {{ maxHours}} number of Hours Available per Week"
+    validate:
+      rules:
+        - { field: minHours, required: true,
+          message: "Please enter the minimum number of hours you are available per week."}
+        - { field: maxHours, min: 0,
+            message: "Please enter a valid minimum number of hours."}
+        - { field: maxHours, required: true,
+          message: "Please enter the maximum number of hours you are available per week."}
+        - { field: maxHours, min: "minHours",
+            message: "Please enter a maximum number of Hours equal to or greater than minimum number of Hours."}
+
+  participationAcknowledgementPrompt:
+    title: Acknowledgement of participation expectations
+    description: >
+      Please acknowledge the expectation of your participation.
+    model: ParticipationAcknowledgementPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: acknowledged
+              boolean: true
+              legendText: "Applicant acknowledges participation expectations."
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+
+  # ---------------------------------------------------------------------------
+  # Operations & Infrastructure Program ---------------------------------------
+  # ---------------------------------------------------------------------------
+  abilityToAutomateTasksApplicantPrompt:
+    title: Ability to Automate Tasks
+    description: Describe your ability to automate manual, repetitive tasks.
+    model: AbilityToAutomateTasksApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: automated
+              boolean: true
+              labelText: "Have you automated manual, repetitive tasks?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldTextInput:
+              path: descriptionOfAutomation
+              labelText: "Description of Automation"
+              conditional: "automated === true"
+    validate:
+      rules:
+        - { field: automated, required: true, message: "Please choose an option."}
+
+  abilityToAutomateTasksReviewerPrompt:
+    title: Review Ability to Automate Tasks
+    description: Applicant must have the ability to automate manual, repetitive tasks.
+    model: AbilityToAutomateTasksReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: appropriateAutomation
+              boolean: true
+              labelText: "Have you automated manual, repetitive tasks?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldTextInput:
+              path: commentOnScripting
+              labelText: "Comment on Scripting"
+              conditional: "appropriateAutomation === true"
+    validate:
+      rules:
+        - { field: appropriateAutomation, required: true, message: "Please review approval of automation."}
+
+# =============================================================================
+# REQUIREMENTS
+# =============================================================================
+requirements:
+
+  # ---- Common -----
+  minimumGPAReq:
+    phase: PREQUAL
+    title: Minimum GPA
+    navTitle: Min GPA
+    description: Minumum GPA to qualify for specific Programs.
+    prompts: [minimumGPAPrompt]
+    resolve:
+      rules:
+        - { when: "minimumGPAPrompt.gpa == null", status: PENDING }
+        - { when: "minimumGPAPrompt.gpa >= config.minGPA",
+            status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "You must have a minimum GPA of {{config.minGPA}} to qualify." }
+    configuration:
+      model: GPAConfig
+      default: { minGPA: 3.0 }
+      validate:
+        rules:
+          - { field: minGPA, required: true,
+              message: "Please enter minimum GPA to be met."}
+          - { field: minGPA, min: 0.0,
+              message: "Please enter a valid minimum GPA."}
+      ui:
+        configure:
+          fields:
+            - FieldNumber:
+                path: minGPA
+                labelText: "Minimum GPA"
+                helperText: "What is the minimum GPA to qualify for some programs?"
+
+  availableHoursPerWeekReq:
+    phase: PREQUAL
+    title: Available Hours/Week
+    navTitle: Avail Hrs/Wk
+    description: Applicant must be available between a range of hours per week.
+    prompts: [availableHoursPerWeekPrompt]
+    resolve:
+      rules:
+        - { when: "availableHoursPerWeekPrompt.minHours == null", status: PENDING }
+        - { when: "availableHoursPerWeekPrompt.minHours <= config.minHours", status: DISQUALIFYING,
+            reason: "You must be available between {{config.minHours}} and {{config.maxHours}} hours to qualify." }
+        - { when: "availableHoursPerWeekPrompt.maxHours == null", status: PENDING }
+        - { when: "availableHoursPerWeekPrompt.maxHours >= config.maxHours", status: DISQUALIFYING,
+            reason: "You must be available from {{config.minHours}} and {{config.maxHours}} hours to qualify." }
+        - { else: true, status: MET }
+    configuration:
+      model: AvailableHoursPerWeekConfig
+      default: { minHours: 5.0, maxHours: 10.0 }
+      validate:
+        rules:
+          - { field: minHours, required: true,
+              message: "Please enter minimum Hours to be available."}
+          - { field: minHours, min: 0.0,
+              message: "Please enter a valid minimum number of Hours."}
+          - { field: maxHours, required: true,
+              message: "Please enter maximum Hours to be avaialbe."}
+          - { field: maxHours, min: "minHours",
+              message: "Please enter a maximum number of Hours equal to or greater than minimum number of Hours."}
+      ui:
+        configure:
+          fields:
+            - FieldNumber:
+                path: minHours
+                labelText: "Minimum Hours"
+                helperText: "What are the minimum Hours to qualify for some programs?"
+            - FieldNumber:
+                path: maxHours
+                labelText: "Maximum Hours"
+                helperText: "What are the maximum Hours to qualify for some programs?"
+
+  participationAcknowledgementReq:
+    phase: PREQUAL
+    title: Acknowledgement of participation expectations
+    navTitle: Acknowledgment
+    description: Acknowledgment of the expectation of participation.
+    prompts: [participationAcknowledgementPrompt]
+    resolve:
+      rules:
+        - { when: "participationAcknowledgementPrompt.acknowledged == null", status: PENDING }
+        - { when: "participationAcknowledgementPrompt.acknowledged", status: MET }
+        - { else: true, status: DISQUALIFYING,
+            reason: "You must acknowledge the expectation of your participation to qualify." }
+
+  abilityToAutomateTasksApplicantReq:
+    phase: QUALIFICATION
+    title: Applicant automation of tasks
+    navTitle: Automation
+    description: Applicant must show ability to automate manual/repetative tasks
+    prompts: [abilityToAutomateTasksApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "abilityToAutomateTasksApplicantPrompt.automated", status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Must show ability to automate tasks." }
+
+  abilityToAutomateTasksReviewerReq:
+    phase: APPROVAL
+    title: Review of Applicant script ability
+    description: Approval of applicant choice of tasks to automate and quality of scripting
+    prompts: [abilityToAutomateTasksReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "abilityToAutomateTasksReviewerPrompt.appropriateAutomation", status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Must " }
+
+# =============================================================================
+# PROGRAMS
+# =============================================================================
+programs:
+
+  operationsAndInfrastructureProgram:
+    title: Operations & Infrastructure Program
+    requirements:
+      - minimumGPAReq                      # PREQUAL
+      - availableHoursPerWeekReq           # PREQUAL
+      - participationAcknowledgementReq    # PREQUAL
+      - abilityToAutomateTasksApplicantReq # QUALIFICATION
+      - abilityToAutomateTasksReviewerReq  # APPROVAL
+
+  softwareDevelopmentProgram:
+    title: Software Development Program
+    requirements:
+      - minimumGPAReq                      # PREQUAL
+      - availableHoursPerWeekReq           # PREQUAL
+      - participationAcknowledgementReq    # PREQUAL
+
+  projectManagementProgram:
+    title: Project Management Program
+    requirements:
+      - availableHoursPerWeekReq           # PREQUAL
+      - participationAcknowledgementReq    # PREQUAL
+
+  applicationManagementAndSupportProgram:
+    title: Application Management & Support Program
+    requirements:
+      - availableHoursPerWeekReq           # PREQUAL
+      - participationAcknowledgementReq    # PREQUAL
