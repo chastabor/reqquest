@@ -24,6 +24,8 @@ forwards the prompt's `data` / `fetched` props plus the spec-supplied
 | `DocumentSetDisplay`           | `DocumentSet`                    | Read-only document list with name + KB size           |
 | `SatisfactoryReviewSet`        | `SatisfactoryReviewSetDisplay`   | Per-item yes/no review (writes to `<path>.satisfactory`) |
 | `SatisfactoryReviewSetDisplay` | `SatisfactoryReviewSet`          | "<label> is (un)satisfactory." per-item readout       |
+| `RateReviewSet`                | `RateReviewSetDisplay`           | Per-item `FieldSelect` over a fetched `{value,label}` list (writes to `<path>.rating` + `<path>.ratingName`) |
+| `RateReviewSetDisplay`         | `RateReviewSet`                  | "<label>: <ratingName ?? rating>" per-item readout    |
 | `SelectValueLabel`             | (BooleanSummary or value text)   | `FieldSelect` over fetched `{value,label}` list, with optional label mirror |
 | `QuestionnairePrompt`          | —                                | Layout wrapper for `fields:` (intro block, external links, container width) — used via `wrap.template:` |
 | `LabeledFields`                | (display only)                   | `<dl>` of `path: label` rows; combine with `cases:` for conditional readouts |

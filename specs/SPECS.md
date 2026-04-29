@@ -427,7 +427,7 @@ The library currently covers six themes:
 |-----------------------------|----------------------------------------------------------------------------|
 | Boolean shapes              | `BooleanSummary`, `YesNoFollowUp`, `YesNoFollowUpDisplay`                  |
 | Document handling           | `DocumentSet`, `DocumentSetDisplay`                                        |
-| Reviewer rubrics            | `SatisfactoryReviewSet`, `SatisfactoryReviewSetDisplay`                    |
+| Reviewer rubrics            | `SatisfactoryReviewSet`, `SatisfactoryReviewSetDisplay`, `RateReviewSet`, `RateReviewSetDisplay` |
 | Domain blocks               | `SelectValueLabel`, `ResidencePrompt`, `ResidencePromptDisplay`            |
 | Display readouts            | `LabeledFields`                                                            |
 | Selection / layout          | `CardGridSelect`, `QuestionnairePrompt`                                    |
