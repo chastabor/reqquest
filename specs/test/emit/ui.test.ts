@@ -39,7 +39,7 @@ describe('emitUI — demo-default2', () => {
     const tpl = bundle.paths().filter(p => p.includes('/_templates/'))
     expect(tpl).toContain('ui/src/local/default2/_templates/QuestionnairePrompt.svelte')
     expect(tpl).toContain('ui/src/local/default2/_templates/YesNoFollowUp.svelte')
-    expect(tpl).toContain('ui/src/local/default2/_templates/StateSelect.svelte')
+    expect(tpl).toContain('ui/src/local/default2/_templates/SelectValueLabel.svelte')
     expect(tpl).toContain('ui/src/local/default2/_templates/LabeledFields.svelte')
   })
 
@@ -62,8 +62,8 @@ describe('emitUI — demo-default2', () => {
   it('emits Shape B template wrapper with {data} forwarding', async () => {
     const bundle = await emit()
     const state = bundle.get('ui/src/local/default2/state/WhichStatePrompt.svelte')!
-    expect(state).toMatch(/import StateSelect from "\.\.\/_templates\/StateSelect\.svelte"/)
-    expect(state).toMatch(/<StateSelect \{data\} \{fetched\}/)
+    expect(state).toMatch(/import SelectValueLabel from "\.\.\/_templates\/SelectValueLabel\.svelte"/)
+    expect(state).toMatch(/<SelectValueLabel \{data\} \{fetched\}/)
     expect(state).toMatch(/listKey="stateList"/)
   })
 

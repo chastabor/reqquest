@@ -159,9 +159,9 @@ prompts:
                                               #   the StateList ref data
     ui:
       form:
-        # B: template reference. StateSelect emits a FieldSelect + paired
+        # B: template reference. SelectValueLabel emits a FieldSelect + paired
         # FieldHidden(stateName) using `fetched.stateList`.
-        template: StateSelect
+        template: SelectValueLabel
         props:
           path: state
           labelPath: stateName

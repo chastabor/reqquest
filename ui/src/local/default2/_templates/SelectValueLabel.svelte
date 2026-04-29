@@ -1,5 +1,5 @@
 <!--
-  StateSelect — `FieldSelect` over a fetched value/label list, with a
+  SelectValueLabel — `FieldSelect` over a fetched value/label list, with a
   companion `FieldHidden` that mirrors the selected label into a paired
   `<labelPath>` field. Useful when the schema stores both an enum code
   ("TX") and the human-readable name ("Texas"), e.g. for downstream
@@ -8,7 +8,7 @@
   Spec usage:
     ui:
       form:
-        template: StateSelect
+        template: SelectValueLabel
         props:
           path: state                 # value path
           labelPath: stateName        # mirror path (optional)

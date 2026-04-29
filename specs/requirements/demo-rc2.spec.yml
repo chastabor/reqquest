@@ -294,7 +294,7 @@ prompts:
     fetch: RatingLevels5
     ui:
       form:
-        template: StateSelect
+        template: SelectValueLabel
         props:
           path: rating
           labelPath: ratingName

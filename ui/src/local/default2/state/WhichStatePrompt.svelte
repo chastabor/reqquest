@@ -1,7 +1,7 @@
 <script lang="ts">
-  import StateSelect from "../_templates/StateSelect.svelte"
+  import SelectValueLabel from "../_templates/SelectValueLabel.svelte"
   export let data: any
   export let fetched: any
 </script>
 
-<StateSelect {data} {fetched} path="state" labelPath="stateName" labelText="State" required listKey="stateList" />
+<SelectValueLabel {data} {fetched} path="state" labelPath="stateName" labelText="State" required listKey="stateList" />
