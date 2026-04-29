@@ -93,13 +93,13 @@ models:
     properties:
       letter: UploadInfo
 
-  # RecommendationLetterReviewerPrompt:
-  #   group: common
-  #   properties:
-  #     letterRating:
-  #       properties:
-  #         rating:     { enum: RatingLevels5 }
-  #         ratingName: { enum: RatingLevels5, by: label }
+  RecommendationLetterReviewerPrompt:
+    group: common
+    properties:
+      letter:
+        properties:
+          rating:     { enum: RatingLevels5 }
+          ratingName: { enum: RatingLevels5, by: label }
 
   # ---- Software Development -----
   # ---- Project Management -----
@@ -173,62 +173,68 @@ prompts:
               legendText: "Applicant acknowledges participation expectations."
               items: [{ label: Yes, value: true }, { label: No, value: false }]
 
-#  recommendationLetterApplicantPrompt:
-#    title: Recommendation Letter
-#    description: >
-#      Provide a recommendation letter from a past
-#      or current TXST professor.
-#    model: RecommendationLetterApplicantPrompt
-#    ui:
-#      form:
-#        # B: DocumentSet template — emits one FieldUpload per entry.
-#        template: DocumentSet
-#        props:
-#          documents:
-#            - { path: letter,      label: "Faculty Recommendation Letter" }
-#      display:
-#        template: DocumentSetDisplay
-#        props:
-#          documents:
-#            - { path: letter,      label: "Recommendation Letter" }
-#    preValidate:
-#      # C: per-field upload size check, declared once for all four files.
-#      rules:
-#        - { field: letter,      maxSize: "10MB",
-#            message: "This document is too large, please upload a file less than 10MB." }
-#    preProcessData: true              # author hashes uploads + writes shasum
-#    validate:
-#      rules:
-#        - { field: letter,      required: true, message: "Please upload distemper vaccination record." }
-#
-#  recommendationLetterReviewerPrompt:
-#    title: Vaccine Review
-#    description: Review the vaccination records for the applicant's cats.
-#    model: RecommendationLetterReviewerPrompt
-#    ui:
-#      form:
-#        template: SatisfactoryRatingReviewSet
-#        props:
-#          items:
-#            - { path: rating,      label: "Has been rated?" }
-#      display:
-#        template: SatisfactoryRatingReviewSetDisplay
-#        props:
-#          items:
-#            - { path: rating,      label: "Faculty recommendation letter rating" }
-#    validate:
-#      rules:
-#        - { field: rating,      required: true, message: "Please review faculty recommendation letter." }
-#    # invalidates:
-#    #   # Declarative form (when `dynamic` would otherwise be needed): if any
-#    #   # `<x>.rating === false`, mark the upload prompt invalid.
-#    #   whenAnyFalse: [letter.rating]
-#    #   targets:
-#    #     - { promptId: recommendationLetterApplicantPrompt,
-#    #         reason: "Recommendation letter is invalid. Please re-upload." }
-#    # revalidates:
-#    #   whenAllTrue: [letter.rating]
-#    #   targets: [RecommendationLetterApplicantPrompt]
+  recommendationLetterApplicantPrompt:
+    title: Recommendation Letter
+    description: >
+      Provide a recommendation letter from a past
+      or current TXST professor.
+    model: RecommendationLetterApplicantPrompt
+    ui:
+      form:
+        # B: DocumentSet template — emits one FieldUpload per entry.
+        template: DocumentSet
+        props:
+          documents:
+            - { path: letter,      label: "Faculty Recommendation Letter" }
+      display:
+        template: DocumentSetDisplay
+        props:
+          documents:
+            - { path: letter,      label: "Recommendation Letter" }
+    preValidate:
+      # C: per-field upload size check, declared once for all four files.
+      rules:
+        - { field: letter,      maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+    preProcessData: true              # author hashes uploads + writes shasum
+    validate:
+      rules:
+        - { field: letter,      required: true, message: "Please upload distemper vaccination record." }
+
+  recommendationLetterReviewerPrompt:
+    title: Recommendation Letter Review
+    description: Rate the strength of the faculty recommendation letter.
+    model: RecommendationLetterReviewerPrompt
+    fetch: RatingLevels5
+    ui:
+      form:
+        template: RateReviewSet
+        props:
+          listKey: ratingLevels5
+          required: true
+          items:
+            - { path: letter,      label: "Faculty recommendation letter rating" }
+      display:
+        template: RateReviewSetDisplay
+        props:
+          items:
+            - { path: letter,      label: "Faculty recommendation letter rating" }
+    validate:
+      rules:
+        - { field: letter.rating, required: true,
+            message: "Please rate the faculty recommendation letter." }
+        - { field: letter.ratingName, equalsLabelOf: letter.rating, source: RatingLevels5,
+            message: "Rating level does not match rating entry." }
+    # invalidates:
+    #   # Declarative form (when `dynamic` would otherwise be needed): if any
+    #   # `<x>.rating === false`, mark the upload prompt invalid.
+    #   whenAnyFalse: [letter.rating]
+    #   targets:
+    #     - { promptId: recommendationLetterApplicantPrompt,
+    #         reason: "Recommendation letter is invalid. Please re-upload." }
+    # revalidates:
+    #   whenAllTrue: [letter.rating]
+    #   targets: [RecommendationLetterApplicantPrompt]
 
 
 
