@@ -53,10 +53,10 @@ models:
 
   AbilityToAutomateTasksReviewerPrompt:
     group: operations
-    required: [appropriateAutomation]
+    required: [suitability]
     properties:
-      appropriateAutomation: boolean
-      commentOnScripting: string
+      suitability: boolean
+      comment: string
 
   FutureCareerInterestApplicantPrompt:
     group: operations
@@ -76,13 +76,39 @@ models:
       rating:     { enum: RatingLevels5 }
       ratingName: { enum: RatingLevels5, by: label }
 
+  # Under operations w/note: (Shared - All programs)
+  UploadInfo:
+    group: common
+    required: [_type, multipartIndex, name, mime, size]
+    properties:
+      _type:          string
+      multipartIndex: number
+      name:           string
+      mime:           string
+      size:           number
+      shasum:         string
+
+  RecommendationLetterApplicantPrompt:
+    group: common
+    properties:
+      letter: UploadInfo
+
+  RecommendationLetterReviewerPrompt:
+    group: common
+    properties:
+      rating:     { enum: RatingLevels5 }
+      ratingName: { enum: RatingLevels5, by: label }
+
+  # ---- Software Development -----
+  # ---- Project Management -----
+  # ---- Application Management and Support -----
 
 # =============================================================================
 # PROMPTS
 # =============================================================================
 prompts:
 
-  # common --------------------------------------------------------------------
+  # ---- Common -----
   minimumGPAPrompt:
     title: Minimum GPA
     description: >
@@ -145,7 +171,10 @@ prompts:
               legendText: "Applicant acknowledges participation expectations."
               items: [{ label: Yes, value: true }, { label: No, value: false }]
 
-  # Operations & Infrastructure Program ---------------------------------------
+  #recommendationLetterApplicantPrompt:
+  #recommendationLetterReviewerPrompt:
+
+  # ---- Operations & Infrastructure -----
   abilityToAutomateTasksApplicantPrompt:
     title: Ability to Automate Tasks
     description: Describe your ability to automate manual, repetitive tasks.
@@ -174,17 +203,17 @@ prompts:
       form:
         fields:
           - FieldRadio:
-              path: appropriateAutomation
+              path: suitability
               boolean: true
-              labelText: "Have you automated manual, repetitive tasks?"
+              labelText: "Did the applicant select an suitable task(s) for automation?"
               items: [{ label: Yes, value: true }, { label: No, value: false }]
           - FieldTextInput:
-              path: commentOnScripting
+              path: comment
               labelText: "Comment on Scripting"
-              conditional: "appropriateAutomation === true"
+              conditional: "suitability === true"
     validate:
       rules:
-        - { field: appropriateAutomation, required: true, message: "Please review approval of automation."}
+        - { field: suitability, required: true, message: "Please review approval of automation."}
 
   futureCareerInterestApplicantPrompt:
     title: Future Interest
@@ -222,6 +251,9 @@ prompts:
         - { field: ratingName, equalsLabelOf: rating, source: RatingLevels5,
             message: "Rating level does not match rating entry." }
 
+  # ---- Software Development -----
+  # ---- Project Management -----
+  # ---- Application Management and Support -----
 
 # =============================================================================
 # REQUIREMENTS
@@ -312,16 +344,31 @@ requirements:
         - { else: true, status: DISQUALIFYING,
             reason: "You must acknowledge the expectation of your participation to qualify." }
 
+  # recommendationLetterApplicantReq:
+  #   phase: QUALIFICATION
+  #   title: Recommendation Letter
+  #   navTitle: Letter
+  #   description: Provide a recommendation letter from a past or current TXST professor.
+  #   prompts: [recommendationLetterApplicantPrompt]
+
+  # recommendationLetterReviewerReq:
+  #   phase: APPROVAL
+  #   title: Assess Recommendation Letter
+  #   description: Rate the strength of the recommendation
+  #   prompts: [recommendationLetterReviewerPrompt]
+
+  # ---- Operations & Infrastructure -----
   abilityToAutomateTasksApplicantReq:
     phase: QUALIFICATION
-    title: Applicant automation of tasks
+    title: Has applicant automate tasks?
     navTitle: Automation
-    description: Applicant must show ability to automate manual/repetative tasks
+    description: Have you ever written a script to automate a repetitive task?
     prompts: [abilityToAutomateTasksApplicantPrompt]
     resolve:
       rules:
+        - { when: "abilityToAutomateTasksApplicantPrompt.automated == null", status: PENDING }
         - { when: "abilityToAutomateTasksApplicantPrompt.automated", status: MET }
-        - { else: true, status: DISQUALIFYING, reason: "Must show ability to automate tasks." }
+        - { else: true, status: WARNING, reason: "Must show ability to automate tasks." }
 
   abilityToAutomateTasksReviewerReq:
     phase: APPROVAL
@@ -330,9 +377,37 @@ requirements:
     prompts: [abilityToAutomateTasksReviewerPrompt]
     resolve:
       rules:
-        - { when: "abilityToAutomateTasksReviewerPrompt.appropriateAutomation", status: MET }
-        - { else: true, status: DISQUALIFYING, reason: "Must " }
+        - { when: "abilityToAutomateTasksReviewerPrompt.suitability == null", status: PENDING }
+        - { when: "abilityToAutomateTasksReviewerPrompt.suitability", status: MET }
+        - { else: true, status: DISQUALIFYING, reason: "Applicant presented an unacceptable level of scripting." }
 
+  futureCareerInterestApplicantReq:
+    phase: QUALIFICATION
+    title: Describe career in dev/ops interests
+    navTitle: Career Interests
+    description: What interests you most about operations as a career?
+    prompts: [futureCareerInterestApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "futureCareerInterestApplicantPrompt.interests", status: MET }
+        - { else: true, status: PENDING }
+
+  futureCareerInterestReviewerReq:
+    phase: APPROVAL
+    title: Rate Career Interest Response
+    description: >
+      Rate the applicants response.
+      Did they show that they have investigated future career paths.
+    prompts: [futureCareerInterestReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "futureCareerInterestReviewerPrompt.rating == null", status: PENDING }
+        - { else: true, status: MET }
+
+
+  # ---- Software Development -----
+  # ---- Project Management -----
+  # ---- Application Management and Support -----
 
 # =============================================================================
 # PROGRAMS
@@ -347,6 +422,10 @@ programs:
       - participationAcknowledgementReq    # PREQUAL
       - abilityToAutomateTasksApplicantReq # QUALIFICATION
       - abilityToAutomateTasksReviewerReq  # APPROVAL
+      - futureCareerInterestApplicantReq   # QUALIFICATION
+      - futureCareerInterestReviewerReq    # APPROVAL
+      # - recommendationLetterApplicantReq   # QUALIFICATION
+      # - recommendationLetterReviewerReq    # APPROVAL
 
   softwareDevelopmentProgram:
     title: Software Development Program
@@ -354,15 +433,21 @@ programs:
       - minimumGPAReq                      # PREQUAL
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
+      # - recommendationLetterApplicantReq   # QUALIFICATION
+      # - recommendationLetterReviewerReq    # APPROVAL
 
   projectManagementProgram:
     title: Project Management Program
     requirements:
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
+      # - recommendationLetterApplicantReq   # QUALIFICATION
+      # - recommendationLetterReviewerReq    # APPROVAL
 
   applicationManagementAndSupportProgram:
     title: Application Management & Support Program
     requirements:
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
+      # - recommendationLetterApplicantReq   # QUALIFICATION
+      # - recommendationLetterReviewerReq    # APPROVAL
