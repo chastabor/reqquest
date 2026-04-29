@@ -185,21 +185,21 @@ prompts:
         template: DocumentSet
         props:
           documents:
-            - { path: letter,      label: "Faculty Recommendation Letter" }
+            - { path: letter, label: "Faculty Recommendation Letter" }
       display:
         template: DocumentSetDisplay
         props:
           documents:
-            - { path: letter,      label: "Recommendation Letter" }
+            - { path: letter, label: "Recommendation Letter" }
     preValidate:
-      # C: per-field upload size check, declared once for all four files.
+      # C: per-field upload size check, declared for each file.
       rules:
-        - { field: letter,      maxSize: "10MB",
+        - { field: letter, maxSize: "10MB",
             message: "This document is too large, please upload a file less than 10MB." }
     preProcessData: true              # author hashes uploads + writes shasum
     validate:
       rules:
-        - { field: letter,      required: true, message: "Please upload distemper vaccination record." }
+        - { field: letter, required: true, message: "Please upload your recommendation letter from faculty." }
 
   recommendationLetterReviewerPrompt:
     title: Recommendation Letter Review
@@ -213,12 +213,14 @@ prompts:
           listKey: ratingLevels5
           required: true
           items:
-            - { path: letter,      label: "Faculty recommendation letter rating" }
+            - { path: letter,
+                label: "Faculty recommendation letter rating" }
       display:
         template: RateReviewSetDisplay
         props:
           items:
-            - { path: letter,      label: "Faculty recommendation letter rating" }
+            - { path: letter,
+                label: "Faculty recommendation letter rating" }
     validate:
       rules:
         - { field: letter.rating, required: true,
@@ -249,11 +251,13 @@ prompts:
           - FieldRadio:
               path: automated
               boolean: true
-              labelText: "Have you automated manual, repetitive tasks?"
+              labelText: "Have you ever written a script to automate a repetitive task?"
               items: [{ label: Yes, value: true }, { label: No, value: false }]
           - FieldTextInput:
               path: descriptionOfAutomation
-              labelText: "Description of Automation"
+              labelText: >
+                Describe the task(s) that you've automated and why.
+                Feel free to include any links if this is already documented.
               conditional: "automated === true"
     validate:
       rules:
@@ -269,11 +273,11 @@ prompts:
           - FieldRadio:
               path: suitability
               boolean: true
-              labelText: "Did the applicant select an suitable task(s) for automation?"
+              labelText: "Did the applicant select an appropriate task(s) for automation?"
               items: [{ label: Yes, value: true }, { label: No, value: false }]
           - FieldTextInput:
               path: comment
-              labelText: "Comment on Scripting"
+              labelText: "Add any notable comments about their script"
               conditional: "suitability === true"
     validate:
       rules:
@@ -281,14 +285,14 @@ prompts:
 
   futureCareerInterestApplicantPrompt:
     title: Future Interest
-    description: Please describe your future dev/ops career interests.
+    description: Must have a future interest in having a career in dev/ops.
     model: FutureCareerInterestApplicantPrompt
     ui:
       form:
         fields:
           - FieldTextInput:
               path: interests
-              labelText: "Future Interests"
+              labelText: "What interests you most about operations as a career?"
     validate:
       rules:
         - { field: interests, required: true, message: "Please describe your future dev/ops career interests." }
@@ -311,7 +315,7 @@ prompts:
         text: "{{ ratingName ?? rating }}"
     validate:
       rules:
-        - { field: rating, required: true, message: "Please enter a rating" }
+        - { field: rating, required: true, message: "Score the free text response." }
         - { field: ratingName, equalsLabelOf: rating, source: RatingLevels5,
             message: "Rating level does not match rating entry." }
 
@@ -408,19 +412,26 @@ requirements:
         - { else: true, status: DISQUALIFYING,
             reason: "You must acknowledge the expectation of your participation to qualify." }
 
-  # recommendationLetterApplicantReq:
-  #   phase: QUALIFICATION
-  #   title: Recommendation Letter
-  #   navTitle: Letter
-  #   description: Provide a recommendation letter from a past or current TXST professor.
-  #   prompts: [recommendationLetterApplicantPrompt]
+  recommendationLetterApplicantReq:
+    phase: QUALIFICATION
+    title: Recommendation Letter
+    navTitle: Letter
+    description: Provide a recommendation letter from a past or current TXST professor.
+    prompts: [recommendationLetterApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "recommendationLetterApplicantPrompt.letter != null", status: MET }
+        - { when: "recommendationLetterApplicantPrompt.letter", status: PENDING }
 
-  # recommendationLetterReviewerReq:
-  #   phase: APPROVAL
-  #   title: Assess Recommendation Letter
-  #   description: Rate the strength of the recommendation
-  #   prompts: [recommendationLetterReviewerPrompt]
-
+  recommendationLetterReviewerReq:
+    phase: APPROVAL
+    title: Assess Recommendation Letter
+    description: Rate the strength of the recommendation
+    prompts: [recommendationLetterReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "recommendationLetterReviewerPrompt.letter.rating != null", status: MET }
+        - { else: true, status: PENDING }
 
   # ---- Operations & Infrastructure -----
   abilityToAutomateTasksApplicantReq:
@@ -442,9 +453,8 @@ requirements:
     prompts: [abilityToAutomateTasksReviewerPrompt]
     resolve:
       rules:
-        - { when: "abilityToAutomateTasksReviewerPrompt.suitability == null", status: PENDING }
-        - { when: "abilityToAutomateTasksReviewerPrompt.suitability", status: MET }
-        - { else: true, status: DISQUALIFYING, reason: "Applicant presented an unacceptable level of scripting." }
+        - { when: "abilityToAutomateTasksReviewerPrompt.suitability != null", status: MET }
+        - { else: true, status: PENDING }
 
   futureCareerInterestApplicantReq:
     phase: QUALIFICATION
@@ -454,7 +464,7 @@ requirements:
     prompts: [futureCareerInterestApplicantPrompt]
     resolve:
       rules:
-        - { when: "futureCareerInterestApplicantPrompt.interests", status: MET }
+        - { when: "futureCareerInterestApplicantPrompt.interests != null", status: MET }
         - { else: true, status: PENDING }
 
   futureCareerInterestReviewerReq:
@@ -466,8 +476,8 @@ requirements:
     prompts: [futureCareerInterestReviewerPrompt]
     resolve:
       rules:
-        - { when: "futureCareerInterestReviewerPrompt.rating == null", status: PENDING }
-        - { else: true, status: MET }
+        - { when: "futureCareerInterestReviewerPrompt.rating != null", status: MET }
+        - { else: true, status: PENDING }
 
 
   # ---- Software Development -----
@@ -489,8 +499,8 @@ programs:
       - abilityToAutomateTasksReviewerReq  # APPROVAL
       - futureCareerInterestApplicantReq   # QUALIFICATION
       - futureCareerInterestReviewerReq    # APPROVAL
-      # - recommendationLetterApplicantReq   # QUALIFICATION
-      # - recommendationLetterReviewerReq    # APPROVAL
+      - recommendationLetterApplicantReq   # QUALIFICATION
+      - recommendationLetterReviewerReq    # APPROVAL
 
   softwareDevelopmentProgram:
     title: Software Development Program
@@ -498,21 +508,21 @@ programs:
       - minimumGPAReq                      # PREQUAL
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
-      # - recommendationLetterApplicantReq   # QUALIFICATION
-      # - recommendationLetterReviewerReq    # APPROVAL
+      - recommendationLetterApplicantReq   # QUALIFICATION
+      - recommendationLetterReviewerReq    # APPROVAL
 
   projectManagementProgram:
     title: Project Management Program
     requirements:
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
-      # - recommendationLetterApplicantReq   # QUALIFICATION
-      # - recommendationLetterReviewerReq    # APPROVAL
+      - recommendationLetterApplicantReq   # QUALIFICATION
+      - recommendationLetterReviewerReq    # APPROVAL
 
   applicationManagementAndSupportProgram:
     title: Application Management & Support Program
     requirements:
       - availableHoursPerWeekReq           # PREQUAL
       - participationAcknowledgementReq    # PREQUAL
-      # - recommendationLetterApplicantReq   # QUALIFICATION
-      # - recommendationLetterReviewerReq    # APPROVAL
+      - recommendationLetterApplicantReq   # QUALIFICATION
+      - recommendationLetterReviewerReq    # APPROVAL
