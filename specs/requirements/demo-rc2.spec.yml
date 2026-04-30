@@ -102,6 +102,21 @@ models:
           ratingName: { enum: RatingLevels5, by: label }
 
   # ---- Software Development -----
+  LogicalThinkingApplicantPrompt:
+    # Must be able to understand what data is needed to solve a request and structure it logically.
+    group: software-development
+    properties:
+      solution: string
+      documentation: UploadInfo
+
+
+  LogicalThinkingReviewerPrompt:
+    group: software-development
+    required: [scored]
+    properties:
+      scored: number
+      explanation: string
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
@@ -320,6 +335,63 @@ prompts:
             message: "Rating level does not match rating entry." }
 
   # ---- Software Development -----
+  logicalThinkingApplicantPrompt:
+    title: Logical Thinking
+    description: >
+      You're building a 'Seat Finder' for the dining hall.
+      In plain English (or pseudocode), describe how you would sort
+      a list of tables to show the user the ones that are both empty
+      and closest to the entrance. Note: You may make up data to
+      support your solution.
+    model: LogicalThinkingApplicantPrompt
+    ui:
+      form:
+        # B: DocumentSet template — emits one FieldUpload per entry.
+        template: DocumentSet
+        props:
+          documents:
+            - { path: documentation,
+                label: "Supporting pseudocode documentation.",
+                textInput: {
+                  path: solution,
+                  labelText: "Please enter solution."
+                }
+              }
+      display:
+        template: DocumentSetDisplay
+        props:
+          documents:
+            - { path: documentation, label: "Supporting pseudocode documentation." }
+    preValidate:
+      # C: per-field upload size check, declared for each file.
+      rules:
+        - { field: documentation, maxSize: "10MB",
+            message: "This document is too large, please upload a file less than 10MB." }
+    preProcessData: true              # author hashes uploads + writes shasum
+    validate:
+      rules:
+        - { field: solution, required: true, message: "Please describe your solution to the problem." }
+
+  logicalThinkingReviewerPrompt:
+    title: Acknowledgement of participation expectations
+    description: Assess the applicant’s solution.
+    model: LogicalThinkingReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: scored
+              number: true
+              legendText: "Applicant acknowledges participation expectations."
+              items: [{ label: "Worst", value: 1 }, { label: "Below Average", value: 2 }, { label: "Average", value: 3 }, { label: "Above Average", value: 4 }, { label: "Best", value: 5 }]
+          - FieldTextInput:
+              path: explanation
+              labelText: "Explain your score."
+    validate:
+      rules:
+        - { field: scored, required: true, message: "Score the free text response." }
+        - { field: scored, oneOf: [1, 2, 3, 4, 5], message: "Score does not match rating range." }
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
