@@ -146,6 +146,100 @@ models:
       isIssueReal: boolean
       isSolutionFeasible: boolean
 
+  # ---- Project Management -----
+
+  OrganizationApplicantPrompt:
+    group: project-management
+    required: [orchestration]
+    properties:
+      # Prompt: Describe a time you had to organize tasks or coordinate something
+      # (school, event, group project, etc.).
+      orchestration: string
+
+  OrganizationReviewerPrompt:
+    group: project-management
+    required: [isOrchestrated]
+    properties:
+      # Prompt: Does the applicant demonstrate organization and
+      # task management?
+      # (Yes/No)
+      isOrchestrated: boolean
+
+  CommunicationApplicantPrompt:
+    # Must be able to facilitate conversations between team members.
+    group: project-management
+    properties:
+      # Prompt: You are leading a group project.
+      # One teammate is doing all the work,
+      # and another hasn't responded to texts in three days.
+      # How do you handle this scenario?
+      arbitration: string
+
+  CommunicationReviewerPrompt:
+    group: project-management
+    properties:
+      # Prompt: Is the applicant’s communication clear and structured?
+      # (Yes/No)
+      isArbitor: boolean
+
+  # Reviewer Only
+  AttentionToDetailAssessmentReviewerPrompt:
+    # Must demonstrate overall attention to detail in communications and documents.
+    # Requirement: Assess all applicant submitted answers and materials.
+    group: project-management
+    properties:
+      # Prompt: Does the applicant follow instructions?
+      # (Yes/No)
+      isCompliant: boolean
+      # Do their materials have frequent spelling or grammar errors?
+      # (Yes/No)
+      isProofread: boolean
+
+  # ---- Application Management and Support -----
+
+  AttentionToDetailApplicantPrompt:
+    group: application-support
+    properties:
+      # Input: Describe a time you had to check something carefully
+      # for mistakes or accuracy.
+      detailed: string
+
+  AttentionToDetailReviewerPrompt:
+    group: application-support
+    properties:
+      # Prompt: Does the applicant demonstrate attention to detail?
+      # (Yes/No)
+      isDetailed: boolean
+
+  ProcessAdherenceApplicantPrompt:
+    group: application-support
+    properties:
+      # Input: Describe a time you had to follow detailed instructions
+      # to complete a task.
+      adherance: string
+
+  ProcessAdherenceReviewerPrompt:
+    group: application-support
+    properties:
+      # Prompt: Can the applicant follow and validate a process?
+      # (Yes/No)
+      isAttentive: boolean
+
+  WrittenCommunicationApplicantPrompt:
+    group: application-support
+    properties:
+      # Input: Write a short set of instructions explaining how to
+      # complete a simple task
+      # (e.g., submit an assignment, reset a password).
+      instructions: string
+
+  WrittenCommunicationReviewerPrompt:
+    group: application-support
+    properties:
+      # Prompt: Is the applicant’s writing clear and easy to follow?
+      # (Yes/No)
+      isWellDefined: boolean
+
 # =============================================================================
 # PROMPTS
 # =============================================================================
