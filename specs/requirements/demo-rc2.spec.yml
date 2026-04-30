@@ -134,30 +134,17 @@ models:
       explanation: string
 
   CreativeProblemSolvingApplicantPrompt:
-    # Demonstrate ability to assess websites/application weaknesses
-    # and think through solutions.
     group: software-development
     required: [issueAndSolution]
     properties:
-      # What is one website or app you use for school that frustrates you?
-      # If you were the developer, what one feature would you add or change
-      # to make it easier for students to use?
-      # (Free text field)
       issueAndSolution: string
 
   CreativeProblemSolvingReviewerPrompt:
-    # Must be able to analyze shortcomings in current technologies
-    # and consider alternate solutions.
-    # Assess the validity of the reported issue and solution.
     group: software-development
+    required: [issueReal, solutionFeasible]
     properties:
-      # Is the issue real?
-      # (Yes/No)
-      issueReal: boolean
-      # Is the proposed feature/change technologically feasible?
-      # (Yes/No)
-      solutionFeasible: boolean
-
+      isIssueReal: boolean
+      isSolutionFeasible: boolean
 
 # =============================================================================
 # PROMPTS
@@ -291,7 +278,6 @@ prompts:
     # revalidates:
     #   whenAllTrue: [letter.rating]
     #   targets: [RecommendationLetterApplicantPrompt]
-
 
 
   # ---- Operations & Infrastructure -----
@@ -486,6 +472,50 @@ prompts:
       rules:
         - { field: interested, required: true, message: "Please score applicant interest in building."}
         - { field: explanation, required: true, message: "Please explain your score."}
+
+  creativeProblemSolvingApplicantPrompt:
+    # Demonstrate ability to assess websites/application weaknesses
+    # and think through solutions.
+    title: Creative Problem Solving
+    description: >
+      What is one website or app you use for school that frustrates you?
+      If you were the developer, what one feature would you add or change
+      to make it easier for students to use?
+    model: CreativeProblemSolvingApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: issueAndSolution
+              labelText: "Issue and Solution"
+    validate:
+      rules:
+        - { field: issueAndSolution, required: true, message: "Please fill in with solution."}
+
+  creativeProblemSolvingReviewerPrompt:
+    title: Creative Problem Solving Review
+    description: >
+      The applicant must be able to analyze shortcomings in
+      current technologies and consider alternate solutions.
+      Assess the validity of the reported issue and solution.
+    model: CreativeProblemSolvingReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isIssueReal
+              boolean: true
+              labelText: "Is the issue real?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldRadio:
+              path: isSolutionFeasible
+              boolean: true
+              labelText: "Is the proposed feature/change technologically feasible?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isIssueReal, required: true, message: "Please choose an option."}
+        - { field: isSolutionFeasible, required: true, message: "Please choose an option."}
 
   # ---- Project Management -----
   # ---- Application Management and Support -----
@@ -688,6 +718,33 @@ requirements:
         - { when: "interestInBuildingReviewerPrompt.interested != null && interestInBuildingReviewerPrompt.explanation != null", status: MET }
         - { else: true, status: PENDING }
 
+  creativeProblemSolvingApplicantReq:
+    phase: QUALIFICATION
+    title: Creative Problem Solving
+    navTitle: Problem Solving
+    description: >
+      What is one website or app you use for school that frustrates you?
+      If you were the developer, what one feature would you add or change
+      to make it easier for students to use?
+    prompts: [creativeProblemSolvingApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "creativeProblemSolvingApplicantPrompt.issueAndSolution != null", status: MET }
+        - { when: "creativeProblemSolvingApplicantPrompt.issueAndSolution", status: PENDING }
+
+  creativeProblemSolvingReviewerReq:
+    phase: APPROVAL
+    title: Creative Problem Solving Review
+    description: >
+      The applicant must be able to analyze shortcomings in
+      current technologies and consider alternate solutions.
+      Assess the validity of the reported issue and solution.
+    prompts: [creativeProblemSolvingReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "creativeProblemSolvingReviewerPrompt.isIssueReal != null && creativeProblemSolvingReviewerPrompt.isSolutionFeasible != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
@@ -721,6 +778,8 @@ programs:
       - logicalThinkingReviewerReq         # APPROVAL
       - interestInBuildingApplicantReq     # QUALIFICATION
       - interestInBuildingReviewerReq      # APPROVAL
+      - creativeProblemSolvingApplicantReq # QUALIFICATION
+      - creativeProblemSolvingReviewerReq  # APPROVAL
 
   projectManagementProgram:
     title: Project Management Program
