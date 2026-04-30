@@ -161,20 +161,15 @@ models:
       isOrchestrated: boolean
 
   CommunicationApplicantPrompt:
-    # Must be able to facilitate conversations between team members.
     group: project-management
+    required: [arbitration]
     properties:
-      # Prompt: You are leading a group project.
-      # One teammate is doing all the work,
-      # and another hasn't responded to texts in three days.
-      # How do you handle this scenario?
       arbitration: string
 
   CommunicationReviewerPrompt:
     group: project-management
+    required: [isArbitor]
     properties:
-      # Prompt: Is the applicant’s communication clear and structured?
-      # (Yes/No)
       isArbitor: boolean
 
   # Reviewer Only
@@ -182,6 +177,7 @@ models:
     # Must demonstrate overall attention to detail in communications and documents.
     # Requirement: Assess all applicant submitted answers and materials.
     group: project-management
+    required: [isCompliant, isProofread]
     properties:
       # Prompt: Does the applicant follow instructions?
       # (Yes/No)
@@ -194,6 +190,7 @@ models:
 
   AttentionToDetailApplicantPrompt:
     group: application-support
+    required: [detailed]
     properties:
       # Input: Describe a time you had to check something carefully
       # for mistakes or accuracy.
@@ -201,6 +198,7 @@ models:
 
   AttentionToDetailReviewerPrompt:
     group: application-support
+    required: [isDetailed]
     properties:
       # Prompt: Does the applicant demonstrate attention to detail?
       # (Yes/No)
@@ -208,6 +206,7 @@ models:
 
   ProcessAdherenceApplicantPrompt:
     group: application-support
+    required: [adherance]
     properties:
       # Input: Describe a time you had to follow detailed instructions
       # to complete a task.
@@ -215,6 +214,7 @@ models:
 
   ProcessAdherenceReviewerPrompt:
     group: application-support
+    required: [isAttentive]
     properties:
       # Prompt: Can the applicant follow and validate a process?
       # (Yes/No)
@@ -222,6 +222,7 @@ models:
 
   WrittenCommunicationApplicantPrompt:
     group: application-support
+    required: [instructions]
     properties:
       # Input: Write a short set of instructions explaining how to
       # complete a simple task
@@ -230,6 +231,7 @@ models:
 
   WrittenCommunicationReviewerPrompt:
     group: application-support
+    required: [isWellDefined]
     properties:
       # Prompt: Is the applicant’s writing clear and easy to follow?
       # (Yes/No)
@@ -640,6 +642,40 @@ prompts:
       rules:
         - { field: isOrchestrated, required: true, message: "Please choose an option."}
 
+  communicationApplicantPrompt:
+    title: Communication
+    description: >
+      You are leading a group project.
+      One teammate is doing all the work,
+      and another hasn't responded to texts in three days.
+      How do you handle this scenario?
+    model: CommunicationApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: arbitration
+              labelText: "Communication Input"
+    validate:
+      rules:
+        - { field: arbitration, required: true, message: "Please fill about organization/coordination tasks."}
+
+  communicationReviewerPrompt:
+    title: Organization Review
+    description: "Does applicant show able to facilitate conversations between team members?"
+    model: CommunicationReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isArbitor
+              boolean: true
+              labelText: "Satisfies arbitration skills?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isArbitor, required: true, message: "Please choose an option."}
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -892,6 +928,31 @@ requirements:
         - { when: "organizationReviewerPrompt.isOrchestrated != null", status: MET }
         - { else: true, status: PENDING }
 
+  communicationApplicantReq:
+    phase: QUALIFICATION
+    title: Must be able to facilitate conversations between team members.
+    navTitle: Communication
+    description: >
+      You are leading a group project.
+      One teammate is doing all the work,
+      and another hasn't responded to texts in three days.
+      How do you handle this scenario?
+    prompts: [communicationApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "communicationApplicantPrompt.arbitration != null", status: MET }
+        - { else: true, status: PENDING }
+
+  communicationReviewerReq:
+    phase: APPROVAL
+    title: Review of Applicant ability to facilitate conversations between team members.
+    description: "Does applicant show able to facilitate conversations between team members?"
+    prompts: [communicationReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "communicationReviewerPrompt.isArbitor != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -936,6 +997,8 @@ programs:
       - recommendationLetterReviewerReq    # APPROVAL
       - organizationApplicantReq           # QUALIFICATION
       - organizationReviewerReq            # APPROVAL
+      - communicationApplicantReq          # QUALIFICATION
+      - communicationReviewerReq           # APPROVAL
 
   applicationManagementAndSupportProgram:
     title: Application Management & Support Program
