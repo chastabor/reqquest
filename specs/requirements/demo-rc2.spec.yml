@@ -152,17 +152,12 @@ models:
     group: project-management
     required: [orchestration]
     properties:
-      # Prompt: Describe a time you had to organize tasks or coordinate something
-      # (school, event, group project, etc.).
       orchestration: string
 
   OrganizationReviewerPrompt:
     group: project-management
     required: [isOrchestrated]
     properties:
-      # Prompt: Does the applicant demonstrate organization and
-      # task management?
-      # (Yes/No)
       isOrchestrated: boolean
 
   CommunicationApplicantPrompt:
@@ -612,6 +607,39 @@ prompts:
         - { field: isSolutionFeasible, required: true, message: "Please choose an option."}
 
   # ---- Project Management -----
+
+  organizationApplicantPrompt:
+    title: Organization
+    description: >
+      Describe a time you had to organize tasks or
+      coordinate something (school, event, group project, etc.).
+    model: OrganizationApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: orchestration
+              labelText: "Organization"
+    validate:
+      rules:
+        - { field: orchestration, required: true, message: "Please fill about organization/coordination tasks."}
+
+  organizationReviewerPrompt:
+    title: Organization Review
+    description: "Does the applicant demonstrate organization and task management?"
+    model: OrganizationReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isOrchestrated
+              boolean: true
+              labelText: "Satisfies organization/coordination of tasks?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isOrchestrated, required: true, message: "Please choose an option."}
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -840,6 +868,30 @@ requirements:
         - { else: true, status: PENDING }
 
   # ---- Project Management -----
+
+  organizationApplicantReq:
+    phase: QUALIFICATION
+    title: Has applicant organized/coordinated tasks?
+    navTitle: Organization
+    description: >
+      Describe a time you had to organize tasks or coordinate
+      something (school, event, group project, etc.).
+    prompts: [organizationApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "organizationApplicantPrompt.orchestration != null", status: MET }
+        - { else: true, status: PENDING }
+
+  organizationReviewerReq:
+    phase: APPROVAL
+    title: Review of Applicant organization/coordination ability
+    description: "Does the applicant demonstrate organization and task management?"
+    prompts: [organizationReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "organizationReviewerPrompt.isOrchestrated != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -882,6 +934,8 @@ programs:
       - participationAcknowledgementReq    # PREQUAL
       - recommendationLetterApplicantReq   # QUALIFICATION
       - recommendationLetterReviewerReq    # APPROVAL
+      - organizationApplicantReq           # QUALIFICATION
+      - organizationReviewerReq            # APPROVAL
 
   applicationManagementAndSupportProgram:
     title: Application Management & Support Program
