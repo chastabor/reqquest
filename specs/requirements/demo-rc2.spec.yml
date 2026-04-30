@@ -553,6 +553,25 @@ requirements:
 
 
   # ---- Software Development -----
+
+  logicalThinkingApplicantReq:
+    phase: QUALIFICATION
+    title: Describe solution to a problem to demonstrate logical thinking.
+    prompts: [logicalThinkingApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "logicalThinkingApplicantPrompt.solution != null", status: MET }
+        - { else: true, status: PENDING }
+
+  logicalThinkingReviewerReq:
+    phase: APPROVAL
+    title: Score logical solution.
+    prompts: [logicalThinkingReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "logicalThinkingReviewerPrompt.scored != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
@@ -582,6 +601,8 @@ programs:
       - participationAcknowledgementReq    # PREQUAL
       - recommendationLetterApplicantReq   # QUALIFICATION
       - recommendationLetterReviewerReq    # APPROVAL
+      - logicalThinkingApplicantReq        # QUALIFICATION
+      - logicalThinkingReviewerReq         # APPROVAL
 
   projectManagementProgram:
     title: Project Management Program
