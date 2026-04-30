@@ -127,16 +127,10 @@ models:
 
   InterestInBuildingReviewerPrompt:
     # Must be passionate about development outside of a classroom setting.
-    # Provide an example of participation in a software development project that was not for class credit.
     group: software-development
     required: [interested]
     properties:
-      # Assess the applicant’s stated contribution to software.
-      # Does the applicant show interest in building or creating technical solutions?
-      # (Yes/No)
       interested: boolean
-      # Optional: Explain your score
-      # (Free text area)
       explanation: string
 
   CreativeProblemSolvingApplicantPrompt:
@@ -442,6 +436,7 @@ prompts:
 
   interestInBuildingApplicantPrompt:
     title: Interest In Building
+    # Provide an example of participation in a software development project that was not for class credit.
     description: >
       Apart from required class assignments, have you ever independently built,
       modified, or contributed to a software project (e.g., a personal website,
@@ -468,6 +463,29 @@ prompts:
     validate:
       rules:
         - { field: contribution, required: true, message: "Please choose an option."}
+
+  interestInBuildingReviewerPrompt:
+    # Assess the applicant’s stated contribution to software.
+    title: Review Interest In Building
+    description: >
+      The applicant mus provide an example of participation in a
+      software development project that was not for class credit.
+    model: InterestInBuildingReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: interested
+              boolean: true
+              labelText: "Does the applicant show interest in building or creating technical solutions?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldTextInput:
+              path: explanation
+              labelText: "Explain your score"
+    validate:
+      rules:
+        - { field: interested, required: true, message: "Please score applicant interest in building."}
+        - { field: explanation, required: true, message: "Please explain your score."}
 
   # ---- Project Management -----
   # ---- Application Management and Support -----
@@ -661,6 +679,15 @@ requirements:
         - { when: "interestInBuildingApplicantPrompt.contribution", status: MET }
         - { else: true, status: WARNING, reason: "Must show interest in building." }
 
+  interestInBuildingReviewerReq:
+    phase: APPROVAL
+    title: Score interest in building.
+    prompts: [interestInBuildingReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "interestInBuildingReviewerPrompt.interested != null && interestInBuildingReviewerPrompt.explanation != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
@@ -693,6 +720,7 @@ programs:
       - logicalThinkingApplicantReq        # QUALIFICATION
       - logicalThinkingReviewerReq         # APPROVAL
       - interestInBuildingApplicantReq     # QUALIFICATION
+      - interestInBuildingReviewerReq      # APPROVAL
 
   projectManagementProgram:
     title: Project Management Program
