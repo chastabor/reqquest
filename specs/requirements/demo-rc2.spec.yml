@@ -76,7 +76,6 @@ models:
       rating:     { enum: RatingLevels5 }
       ratingName: { enum: RatingLevels5, by: label }
 
-  # Under operations w/note: (Shared - All programs)
   UploadInfo:
     group: common
     required: [_type, multipartIndex, name, mime, size]
@@ -88,6 +87,7 @@ models:
       size:           number
       shasum:         string
 
+  # Under operations w/note: (Shared - All programs)
   RecommendationLetterApplicantPrompt:
     group: common
     properties:
@@ -101,14 +101,15 @@ models:
           rating:     { enum: RatingLevels5 }
           ratingName: { enum: RatingLevels5, by: label }
 
+
   # ---- Software Development -----
+
   LogicalThinkingApplicantPrompt:
-    # Must be able to understand what data is needed to solve a request and structure it logically.
     group: software-development
+    required: [solution]
     properties:
       solution: string
       documentation: UploadInfo
-
 
   LogicalThinkingReviewerPrompt:
     group: software-development
@@ -117,8 +118,52 @@ models:
       scored: number
       explanation: string
 
-  # ---- Project Management -----
-  # ---- Application Management and Support -----
+  InterestInBuildingApplicantPrompt:
+    group: software-development
+    required: [contribution]
+    properties:
+      contribution: boolean
+      recap: string
+
+  InterestInBuildingReviewerPrompt:
+    # Must be passionate about development outside of a classroom setting.
+    # Provide an example of participation in a software development project that was not for class credit.
+    group: software-development
+    required: [interested]
+    properties:
+      # Assess the applicant’s stated contribution to software.
+      # Does the applicant show interest in building or creating technical solutions?
+      # (Yes/No)
+      interested: boolean
+      # Optional: Explain your score
+      # (Free text area)
+      explanation: string
+
+  CreativeProblemSolvingApplicantPrompt:
+    # Demonstrate ability to assess websites/application weaknesses
+    # and think through solutions.
+    group: software-development
+    required: [issueAndSolution]
+    properties:
+      # What is one website or app you use for school that frustrates you?
+      # If you were the developer, what one feature would you add or change
+      # to make it easier for students to use?
+      # (Free text field)
+      issueAndSolution: string
+
+  CreativeProblemSolvingReviewerPrompt:
+    # Must be able to analyze shortcomings in current technologies
+    # and consider alternate solutions.
+    # Assess the validity of the reported issue and solution.
+    group: software-development
+    properties:
+      # Is the issue real?
+      # (Yes/No)
+      issueReal: boolean
+      # Is the proposed feature/change technologically feasible?
+      # (Yes/No)
+      solutionFeasible: boolean
+
 
 # =============================================================================
 # PROMPTS
@@ -374,7 +419,10 @@ prompts:
 
   logicalThinkingReviewerPrompt:
     title: Acknowledgement of participation expectations
-    description: Assess the applicant’s solution.
+    description: >
+      Assess the applicant's solution.
+      Applicant must be able to understand what data is needed
+      to solve a request and structure it logically.
     model: LogicalThinkingReviewerPrompt
     ui:
       form:
@@ -391,6 +439,35 @@ prompts:
       rules:
         - { field: scored, required: true, message: "Score the free text response." }
         - { field: scored, oneOf: [1, 2, 3, 4, 5], message: "Score does not match rating range." }
+
+  interestInBuildingApplicantPrompt:
+    title: Interest In Building
+    description: >
+      Apart from required class assignments, have you ever independently built,
+      modified, or contributed to a software project (e.g., a personal website,
+      a game, a script to automate a task, or a contribution to an Open Source
+      project) and successfully resolved a technical bug or error that initially
+      prevented it from working?
+    model: InterestInBuildingApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: contribution
+              boolean: true
+              labelText: "Independent contributions?"
+              # (Yes/No; yes triggers additional fields to answer, no triggers warning)
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldTextInput:
+              path: recap
+              labelText: >
+                Describe the project you worked on and issues you encountered.
+                If using GitHub, please include a link to your account.
+                (free text field)
+              conditional: "contribution === true"
+    validate:
+      rules:
+        - { field: contribution, required: true, message: "Please choose an option."}
 
   # ---- Project Management -----
   # ---- Application Management and Support -----
@@ -572,6 +649,18 @@ requirements:
         - { when: "logicalThinkingReviewerPrompt.scored != null", status: MET }
         - { else: true, status: PENDING }
 
+  interestInBuildingApplicantReq:
+    phase: QUALIFICATION
+    title: Has applicant contributed to another project?
+    navTitle: Automation
+    description: Have you ever contributed to another project?
+    prompts: [interestInBuildingApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "interestInBuildingApplicantPrompt.contribution == null", status: PENDING }
+        - { when: "interestInBuildingApplicantPrompt.contribution", status: MET }
+        - { else: true, status: WARNING, reason: "Must show interest in building." }
+
   # ---- Project Management -----
   # ---- Application Management and Support -----
 
@@ -603,6 +692,7 @@ programs:
       - recommendationLetterReviewerReq    # APPROVAL
       - logicalThinkingApplicantReq        # QUALIFICATION
       - logicalThinkingReviewerReq         # APPROVAL
+      - interestInBuildingApplicantReq     # QUALIFICATION
 
   projectManagementProgram:
     title: Project Management Program
