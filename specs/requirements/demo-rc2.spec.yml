@@ -174,16 +174,10 @@ models:
 
   # Reviewer Only
   AttentionToDetailAssessmentReviewerPrompt:
-    # Must demonstrate overall attention to detail in communications and documents.
-    # Requirement: Assess all applicant submitted answers and materials.
     group: project-management
     required: [isCompliant, isProofread]
     properties:
-      # Prompt: Does the applicant follow instructions?
-      # (Yes/No)
       isCompliant: boolean
-      # Do their materials have frequent spelling or grammar errors?
-      # (Yes/No)
       isProofread: boolean
 
   # ---- Application Management and Support -----
@@ -676,6 +670,28 @@ prompts:
       rules:
         - { field: isArbitor, required: true, message: "Please choose an option."}
 
+  attentionToDetailAssessmentReviewerPrompt:
+    title: Attention To Detail Assessment
+    description: "Assess all applicant submitted answers and materials."
+    model: AttentionToDetailAssessmentReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isCompliant
+              boolean: true
+              labelText: "Does the applicant follow instructions?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+          - FieldRadio:
+              path: isProofread
+              boolean: true
+              labelText: "Do their materials have frequent spelling or grammar errors?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isCompliant, required: true, message: "Please choose an option."}
+        - { field: isProofread, required: true, message: "Please choose an option."}
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -953,6 +969,18 @@ requirements:
         - { when: "communicationReviewerPrompt.isArbitor != null", status: MET }
         - { else: true, status: PENDING }
 
+  attentionToDetailAssessmentReviewerReq:
+    phase: APPROVAL
+    title: Attention To Detail Assessment
+    description: >
+      Applicant must demonstrate overall attention to detail
+      in communications and documents.
+    prompts: [attentionToDetailAssessmentReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "attentionToDetailAssessmentReviewerPrompt.isCompliant != null && attentionToDetailAssessmentReviewerPrompt.isProofread != null", status: MET }
+        - { else: true, status: PENDING }
+
   # ---- Application Management and Support -----
 
 # =============================================================================
@@ -999,6 +1027,7 @@ programs:
       - organizationReviewerReq            # APPROVAL
       - communicationApplicantReq          # QUALIFICATION
       - communicationReviewerReq           # APPROVAL
+      - attentionToDetailAssessmentReviewerReq # APPROVAL
 
   applicationManagementAndSupportProgram:
     title: Application Management & Support Program
