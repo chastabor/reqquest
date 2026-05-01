@@ -236,6 +236,8 @@ prompts:
               path: gpa
               labelText: "GPA"
               helperText: "You current GPA"
+              allowDecimal: true
+              step: 0.1
       display:
         text: "{{ gpa }} GPA"
     validate:
@@ -812,6 +814,8 @@ requirements:
                 path: minGPA
                 labelText: "Minimum GPA"
                 helperText: "What is the minimum GPA to qualify for some programs?"
+                allowDecimal: true
+                step: 0.1
 
   availableHoursPerWeekReq:
     phase: PREQUAL
