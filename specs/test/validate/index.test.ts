@@ -34,6 +34,7 @@ requirements:
   shared:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [shared]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -55,6 +56,7 @@ requirements:
   wfReq:
     phase: WORKFLOW
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -83,6 +85,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -115,6 +118,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -141,6 +145,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -167,6 +172,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -193,6 +199,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -219,6 +226,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -245,6 +253,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -271,6 +280,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -297,6 +307,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -323,6 +334,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -350,6 +362,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -376,6 +389,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -402,6 +416,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration: { model: Cfg, default: { real: 1 } }
@@ -426,6 +441,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve:
       rules:
@@ -455,6 +471,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -484,6 +501,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -511,6 +529,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -537,6 +556,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -564,6 +584,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -591,6 +612,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -621,6 +643,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration:
@@ -647,6 +670,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration:
@@ -677,6 +701,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration:
@@ -707,6 +732,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration:
@@ -743,6 +769,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:

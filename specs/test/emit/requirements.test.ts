@@ -103,6 +103,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
     configuration:
@@ -135,6 +136,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [visiblePrompt]
     hidden: [hiddenPrompt]
     anyOrder: [anyOrderPrompt]

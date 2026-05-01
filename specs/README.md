@@ -97,6 +97,7 @@ requirements:
   haveBigYardReq:
     phase: PREQUAL
     title: Have a big yard
+    description: Applicants must have a yard at least 1000 square feet.
     prompts: [haveYardPrompt]
     resolve:
       rules:
@@ -285,6 +286,8 @@ The generator surfaces every problem it finds in one pass. Examples:
 | `apiKey collision: "foo"`                                                   | A prompt and a requirement share a snake_case key. Rename one of the camelCase ids — they share an auth-tag namespace.    |
 | `unknown field "X" on model Y` in a rule expression                         | The expression references a field that doesn't exist on the prompt's model. Check the model's `properties:` block.        |
 | `phase WORKFLOW; WORKFLOW requirements may only appear under …workflow.…`   | A `phase: WORKFLOW` requirement is listed in `programs.<x>.requirements`. Move it under `programs.<x>.workflow.<stage>.requirements`. |
+| `requirements.<id>.description: Required`                                   | Every requirement must declare a `description:` (the API marks `RequirementDefinition.description` required). Add a one-sentence admin-facing description. |
+| `resolve.rules must end with a rule of the form { else: true, … }`          | The rule list is non-exhaustive — without an `else: true` the generated `resolve` could return `undefined`. Append `- { else: true, status: <STATUS> }` as the last rule. |
 | `tsc` fails after `--emit` complaining about a hand-edited `.logic.ts`      | Your stub body has a type error. Fix the function in `demos/src/<project>/definitions/logic/<group>.logic.ts`.             |
 | `svelte-check` fails with `node:util styleText` in `--verify`               | Node version too old. `svelte-check` requires Node 20+; `tsc` still runs cleanly.                                          |
 | `binary not found at …/node_modules/.bin/tsc` during `--verify`             | Run `npm install` in the package the binary is missing from (`demos/` or `ui/`).                                          |

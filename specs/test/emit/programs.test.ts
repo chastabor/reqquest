@@ -57,11 +57,13 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
   reviewReq:
     phase: WORKFLOW
     title: Review Step
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -90,11 +92,13 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
   auditReq:
     phase: WORKFLOW
     title: Audit
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -123,11 +127,13 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
   wfReq:
     phase: WORKFLOW
     title: WF
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:

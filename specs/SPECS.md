@@ -209,12 +209,16 @@ distinct (different `field:` or different predicate keys).
 
 ### Resolve rules (`resolve`)
 
-Each rule maps a guard to a status. **First match wins.**
+Each rule maps a guard to a status. **First match wins.** The rule list
+must be exhaustive: it must be non-empty and the **last** rule must be
+`else: true`. The validator rejects specs that don't terminate with one,
+so the generated `resolve` function is guaranteed to return on every
+input (no `undefined` fall-through).
 
 | Key       | Meaning                                                                   |
 |-----------|---------------------------------------------------------------------------|
 | `when:`   | Expression returning truthy/falsy. Required unless `else: true` is set.   |
-| `else: true` | Catch-all clause; must appear last and only once.                      |
+| `else: true` | Catch-all clause. **Required as the last rule** in the list; appears only once. |
 | `status:` | One of `PENDING` / `MET` / `DISQUALIFYING` / `WARNING` / `NOT_APPLICABLE`. |
 | `reason:` | Optional reason string. Supports `{{...}}` interpolation.                 |
 
@@ -334,6 +338,11 @@ Additional validations:
 - A requirement whose `phase` is `WORKFLOW` is used only from
   `programs.<x>.workflow.<y>.requirements`, never from
   `programs.<x>.requirements`.
+- Every requirement must declare a `description:`. (Prompts may omit it —
+  the API marks `PromptDefinition.description` optional but
+  `RequirementDefinition.description` required.)
+- `resolve.rules` must be non-empty and end with `else: true` so the
+  emitted function returns on every input.
 - Status codes in `emits` must be a subset of `{PENDING, MET, DISQUALIFYING,
   WARNING, NOT_APPLICABLE}`. The generator can add a dev-mode runtime assert
   around the resolve function that every returned `status` is listed.

@@ -133,7 +133,17 @@ export const ResolveRule = z.union([
 export type ResolveRuleDef = z.infer<typeof ResolveRule>
 
 const ValidateBlock = z.union([HookFlag, z.object({ rules: z.array(FieldValidateRule) }).strict()])
-const ResolveBlock = z.union([HookFlag, z.object({ rules: z.array(ResolveRule) }).strict()])
+const ResolveBlock = z.union([
+  HookFlag,
+  z.object({
+    rules: z.array(ResolveRule)
+      .nonempty('resolve.rules must contain at least one rule')
+      .refine(
+        rules => 'else' in rules[rules.length - 1],
+        'resolve.rules must end with a rule of the form { else: true, status: <STATUS> } so resolution is exhaustive'
+      )
+  }).strict()
+])
 const FetchBlock = z.union([HookFlag, z.string()])                          // string = referenceData id (mirrors prompts.x.fetch)
 
 // =============================================================================
@@ -305,7 +315,7 @@ export const RequirementDef = z.object({
   group: z.string().optional(),
   phase: PhaseName,
   title: z.string(),
-  description: z.string().optional(),
+  description: z.string(),
   navTitle: z.string().optional(),
   prompts: z.array(z.string()),
   hidden: z.array(z.string()).optional(),

@@ -875,7 +875,7 @@ requirements:
     resolve:
       rules:
         - { when: "recommendationLetterApplicantPrompt.letter != null", status: MET }
-        - { when: "recommendationLetterApplicantPrompt.letter", status: PENDING }
+        - { else: true, status: PENDING }
 
   recommendationLetterReviewerReq:
     phase: APPROVAL
@@ -939,6 +939,7 @@ requirements:
   logicalThinkingApplicantReq:
     phase: QUALIFICATION
     title: Describe solution to a problem to demonstrate logical thinking.
+    description: Describe a logical solution to a programming problem.
     prompts: [logicalThinkingApplicantPrompt]
     resolve:
       rules:
@@ -948,6 +949,7 @@ requirements:
   logicalThinkingReviewerReq:
     phase: APPROVAL
     title: Score logical solution.
+    description: Score the applicant's logical solution.
     prompts: [logicalThinkingReviewerPrompt]
     resolve:
       rules:
@@ -969,6 +971,7 @@ requirements:
   interestInBuildingReviewerReq:
     phase: APPROVAL
     title: Score interest in building.
+    description: Score the applicant's interest in independent technical building.
     prompts: [interestInBuildingReviewerPrompt]
     resolve:
       rules:
@@ -987,7 +990,7 @@ requirements:
     resolve:
       rules:
         - { when: "creativeProblemSolvingApplicantPrompt.issueAndSolution != null", status: MET }
-        - { when: "creativeProblemSolvingApplicantPrompt.issueAndSolution", status: PENDING }
+        - { else: true, status: PENDING }
 
   creativeProblemSolvingReviewerReq:
     phase: APPROVAL

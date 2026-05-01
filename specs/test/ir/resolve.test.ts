@@ -98,6 +98,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [p]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
@@ -136,6 +137,7 @@ requirements:
   r:
     phase: APPROVAL
     title: R
+    description: D
     prompts: [notAPrompt]
     resolve: { rules: [ { else: true, status: MET } ] }
 programs:
