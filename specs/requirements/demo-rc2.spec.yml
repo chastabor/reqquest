@@ -186,49 +186,36 @@ models:
     group: application-support
     required: [detailed]
     properties:
-      # Input: Describe a time you had to check something carefully
-      # for mistakes or accuracy.
       detailed: string
 
   AttentionToDetailReviewerPrompt:
     group: application-support
     required: [isDetailed]
     properties:
-      # Prompt: Does the applicant demonstrate attention to detail?
-      # (Yes/No)
       isDetailed: boolean
 
   ProcessAdherenceApplicantPrompt:
     group: application-support
-    required: [adherance]
+    required: [adherence]
     properties:
-      # Input: Describe a time you had to follow detailed instructions
-      # to complete a task.
-      adherance: string
+      adherence: string
 
   ProcessAdherenceReviewerPrompt:
     group: application-support
     required: [isAttentive]
     properties:
-      # Prompt: Can the applicant follow and validate a process?
-      # (Yes/No)
       isAttentive: boolean
 
   WrittenCommunicationApplicantPrompt:
     group: application-support
     required: [instructions]
     properties:
-      # Input: Write a short set of instructions explaining how to
-      # complete a simple task
-      # (e.g., submit an assignment, reset a password).
       instructions: string
 
   WrittenCommunicationReviewerPrompt:
     group: application-support
     required: [isWellDefined]
     properties:
-      # Prompt: Is the applicant’s writing clear and easy to follow?
-      # (Yes/No)
       isWellDefined: boolean
 
 # =============================================================================
@@ -694,6 +681,102 @@ prompts:
 
   # ---- Application Management and Support -----
 
+  attentionToDetailApplicantPrompt:
+    title: Attention To Detail
+    description: >
+      Describe a time you had to check something carefully
+      for mistakes or accuracy.
+    model: AttentionToDetailApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: detailed
+              labelText: Describe attention to detail.
+    validate:
+      rules:
+        - { field: detailed, required: true, message: "Please fill out prompt."}
+
+  attentionToDetailReviewerPrompt:
+    title: Review Applicant Attention To Detail
+    description: Does the applicant demonstrate attention to detail?
+    model: AttentionToDetailReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isDetailed
+              boolean: true
+              labelText: Applicant demonstrate attention to detail?
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isDetailed, required: true, message: "Please review applicant response."}
+
+  processAdherenceApplicantPrompt:
+    title: Process Adherence
+    description: >
+      Describe a time you had to follow detailed instructions
+      to complete a task.
+    model: ProcessAdherenceApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: adherence
+              labelText: Process Adherance
+    validate:
+      rules:
+        - { field: adherence, required: true, message: "Please fill out prompt."}
+
+  processAdherenceReviewerPrompt:
+    title: Review Applicant Process Adherence
+    description: Can the applicant follow and validate a process?
+    model: ProcessAdherenceReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isAttentive
+              boolean: true
+              labelText: "Can applicant follow/validate process?"
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isAttentive, required: true, message: "Please review applicant response."}
+
+  writtenCommunicationApplicantPrompt:
+    title: Written Communication
+    description: >
+      Write a short set of instructions explaining how to complete
+      complete a simple task (e.g., submit an assignment, reset a password).
+    model: WrittenCommunicationApplicantPrompt
+    ui:
+      form:
+        fields:
+          - FieldTextInput:
+              path: instructions
+              labelText: Write instructions
+    validate:
+      rules:
+        - { field: instructions, required: true, message: "Please fill out prompt."}
+
+  writtenCommunicationReviewerPrompt:
+    title: Review Applicant Written Communication
+    description: "Is the applicant's writing clear and easy to follow?"
+    model: WrittenCommunicationReviewerPrompt
+    ui:
+      form:
+        fields:
+          - FieldRadio:
+              path: isWellDefined
+              boolean: true
+              labelText: Review Applicant written instructions
+              items: [{ label: Yes, value: true }, { label: No, value: false }]
+    validate:
+      rules:
+        - { field: isWellDefined, required: true, message: "Please review applicant response."}
+
 # =============================================================================
 # REQUIREMENTS
 # =============================================================================
@@ -983,6 +1066,75 @@ requirements:
 
   # ---- Application Management and Support -----
 
+  attentionToDetailApplicantReq:
+    phase: QUALIFICATION
+    title: Attention To Detail
+    navTitle: Detailed
+    description: >
+      Describe a time you had to check something carefully
+      for mistakes or accuracy.
+    prompts: [attentionToDetailApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "attentionToDetailApplicantPrompt.detailed != null", status: MET }
+        - { else: true, status: PENDING }
+
+  attentionToDetailReviewerReq:
+    phase: APPROVAL
+    title: Review Applicant Attention To Detail
+    description: Does the applicant demonstrate attention to detail?
+    prompts: [attentionToDetailReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "attentionToDetailReviewerPrompt.isDetailed != null", status: MET }
+        - { else: true, status: PENDING }
+
+  processAdherenceApplicantReq:
+    phase: QUALIFICATION
+    title: >
+      Describe a time you had to follow detailed instructions
+      to complete a task.
+    navTitle: Adherence
+    description: Can the applicant follow and validate a process?
+    prompts: [processAdherenceApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "processAdherenceApplicantPrompt.adherence != null", status: MET }
+        - { else: true, status: PENDING }
+
+  processAdherenceReviewerReq:
+    phase: APPROVAL
+    title: Review Applicant Process Adherence
+    description: Can the applicant follow and validate a process?
+    prompts: [processAdherenceReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "processAdherenceReviewerPrompt.isAttentive != null", status: MET }
+        - { else: true, status: PENDING }
+
+  writtenCommunicationApplicantReq:
+    phase: QUALIFICATION
+    title: Written Communication
+    navTitle: Written Comms
+    description: >
+      Write a short set of instructions explaining how to complete
+      complete a simple task (e.g., submit an assignment, reset a password).
+    prompts: [writtenCommunicationApplicantPrompt]
+    resolve:
+      rules:
+        - { when: "writtenCommunicationApplicantPrompt.instructions != null", status: MET }
+        - { else: true, status: PENDING }
+
+  writtenCommunicationReviewerReq:
+    phase: APPROVAL
+    title: Review Applicant Written Communication
+    description: "Is the applicant's writing clear and easy to follow?"
+    prompts: [writtenCommunicationReviewerPrompt]
+    resolve:
+      rules:
+        - { when: "writtenCommunicationReviewerPrompt.isWellDefined != null", status: MET }
+        - { else: true, status: PENDING }
+
 # =============================================================================
 # PROGRAMS
 # =============================================================================
@@ -1036,3 +1188,9 @@ programs:
       - participationAcknowledgementReq    # PREQUAL
       - recommendationLetterApplicantReq   # QUALIFICATION
       - recommendationLetterReviewerReq    # APPROVAL
+      - attentionToDetailApplicantReq      # QUALIFICATION
+      - attentionToDetailReviewerReq       # APPROVAL
+      - processAdherenceApplicantReq       # QUALIFICATION
+      - processAdherenceReviewerReq        # APPROVAL
+      - writtenCommunicationApplicantReq   # QUALIFICATION
+      - writtenCommunicationReviewerReq    # APPROVAL
