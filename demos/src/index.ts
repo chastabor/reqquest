@@ -22,12 +22,11 @@ import * as complexPrograms from './complex/definitions/programs.js'
 import * as complexRequirements from './complex/definitions/requirements/index.js'
 import * as complexPrompts from './complex/definitions/prompts/index.js'
 
-/* RC TODO
-import { rcTestMigrations } from './rc/testdata.js'
-import * as rcPrograms from './rc/definitions/programs.js'
-import * as rcRequirements from './rc/definitions/requirements/index.js'
-import * as rcPrompts from './rc/definitions/prompts/index.js'
-*/
+/* RC2 */
+import { rc2TestMigrations } from './rc2/testdata.js'
+import * as rc2Programs from './rc2/definitions/programs.js'
+import * as rc2Requirements from './rc2/definitions/requirements/index.js'
+import * as rc2Prompts from './rc2/definitions/prompts/index.js'
 
 interface UserOtherInfo {
   email: string
@@ -137,15 +136,13 @@ function configureDemoInstanceParams () {
     migrations: complexTestMigrations,
     multipleRequestsPerPeriod: false
   }
-  /* RC TODO
-  else if (process.env.DEMO_INSTANCE === 'rc') return {
-    programs: Object.values(rcPrograms),
-    requirements: Object.values(rcRequirements),
-    prompts: Object.values(rcPrompts),
-    migrations: rcTestMigrations,
+  else if (process.env.DEMO_INSTANCE === 'rc2') return {
+    programs: Object.values(rc2Programs),
+    requirements: Object.values(rc2Requirements),
+    prompts: Object.values(rc2Prompts),
+    migrations: rc2TestMigrations,
     multipleRequestsPerPeriod: false
   }
-  */
   return {
     programs: Object.values(defaultPrograms),
     requirements: Object.values(defaultRequirements),

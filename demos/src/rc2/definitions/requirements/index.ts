@@ -1,0 +1,5 @@
+export * from './application-support.requirements.js'
+export * from './common.requirements.js'
+export * from './operations.requirements.js'
+export * from './project-management.requirements.js'
+export * from './software-development.requirements.js'

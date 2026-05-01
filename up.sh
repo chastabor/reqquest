@@ -1,17 +1,14 @@
 
 DEMO_INSTANCE="default"
 
-# RC TODO 
-# while getopts ":dsmcr" opt
-while getopts ":dsmc" opt
+while getopts ":dsmcr" opt
 do
   case "$opt" in
     d) DEMO_INSTANCE="default";;
     s) DEMO_INSTANCE="simple";;
     m) DEMO_INSTANCE="multi";;
     c) DEMO_INSTANCE="complex";;
-    # RC TODO 
-    # r) DEMO_INSTANCE="rc";;
+    r) DEMO_INSTANCE="rc2";;
   esac
 done
 
